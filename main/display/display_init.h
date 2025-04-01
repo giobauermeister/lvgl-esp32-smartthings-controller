@@ -29,7 +29,7 @@
 #define GPIO_LCD_BACKLIGHT  38
 
 // Pixel clock
-#define LCD_PIXEL_CLOCK_HZ (2 * 1000 * 1000)
+#define LCD_PIXEL_CLOCK_HZ (16 * 1000 * 1000)
 
 esp_lcd_panel_handle_t display_init(void);
 

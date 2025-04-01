@@ -65,22 +65,12 @@ void lvgl_init(void)
     lv_display_set_color_format(disp, LV_COLOR_FORMAT_RGB565);
 
     // Allocate double buffer from PSRAM
-    // size_t buffer_size = LCD_WIDTH * 40 * lv_color_format_get_size(LV_COLOR_FORMAT_NATIVE);
-    // void *buf1 = heap_caps_malloc(buffer_size, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
-    // void *buf2 = heap_caps_malloc(buffer_size, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
-    // assert(buf1 && buf2);
-
-    // lv_display_set_buffers(disp, buf1, buf2, buffer_size, LV_DISPLAY_RENDER_MODE_PARTIAL);
-
-    size_t buffer_size = LCD_WIDTH * LCD_HEIGHT * lv_color_format_get_size(LV_COLOR_FORMAT_RGB565);
+    size_t buffer_size = LCD_WIDTH * 40 * lv_color_format_get_size(LV_COLOR_FORMAT_NATIVE);
     void *buf1 = heap_caps_malloc(buffer_size, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
-    assert(buf1);
-    lv_display_set_buffers(disp, buf1, NULL, buffer_size, LV_DISPLAY_RENDER_MODE_FULL);
+    void *buf2 = heap_caps_malloc(buffer_size, MALLOC_CAP_DMA | MALLOC_CAP_INTERNAL);
+    assert(buf1 && buf2);
 
-    // Test label
-    lv_obj_t *label = lv_label_create(lv_screen_active());
-    lv_label_set_text(label, "Hello LVGL v9!");
-    lv_obj_center(label);
+    lv_display_set_buffers(disp, buf1, buf2, buffer_size, LV_DISPLAY_RENDER_MODE_PARTIAL);
 
     ESP_LOGI(TAG_LVGL_INIT, "LVGL ready!");
 }
