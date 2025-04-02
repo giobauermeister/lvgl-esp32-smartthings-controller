@@ -8,6 +8,7 @@ LV_IMAGE_DECLARE(img_st_icon);
 LV_IMAGE_DECLARE(img_ac_icon_static);
 LV_IMAGE_DECLARE(img_ac_off);
 LV_IMAGE_DECLARE(img_on_off);
+LV_IMAGE_DECLARE(ac_on);
 
 LV_FONT_DECLARE(lv_font_montserrat_bold_24);
 LV_FONT_DECLARE(lv_font_montserrat_semibold_16);
@@ -20,7 +21,6 @@ LV_FONT_DECLARE(lv_font_montserrat_semibold_16);
 #define DEVICE_CONTAINER_OFFSET_Y  42
 
 void ui_create(void);
-void ui_lottie_create(void);
 void ui_set_styles(void);
 void on_button_pressed(void);
 void on_button_held(void);
