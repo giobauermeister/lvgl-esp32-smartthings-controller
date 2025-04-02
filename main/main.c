@@ -23,7 +23,8 @@ void app_main(void)
     printf("Hello world!\n");
 
     lvgl_init();
-    ui_create();
+    // ui_create();
+    ui_lottie_create();
     create_lvgl_task();
 
     button_set_callback(on_button_pressed);

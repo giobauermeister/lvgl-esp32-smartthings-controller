@@ -10,6 +10,7 @@ set(UI_ASSETS
     "ui/assets/img_app_background.c"
     "ui/assets/img_st_icon.c"
     "ui/assets/img_ac_icon_static.c"
+    "ui/assets/img_ac_off.c"
     "ui/assets/img_on_off.c"
 )
 
