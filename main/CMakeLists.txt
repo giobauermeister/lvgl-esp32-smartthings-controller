@@ -7,11 +7,11 @@ set(SRC_FILES
 )
 
 set(UI_ASSETS
-    "ui/assets/img_app_background.c"
-    "ui/assets/img_st_icon.c"
-    "ui/assets/img_ac_icon_static.c"
-    "ui/assets/img_ac_off.c"
-    "ui/assets/img_on_off.c"
+    "ui/assets/images/img_app_background.c"
+    "ui/assets/images/img_st_icon.c"
+    "ui/assets/images/img_ac_icon_static.c"
+    "ui/assets/images/img_ac_off.c"
+    "ui/assets/images/img_on_off.c"
 )
 
 set(UI_FONTS
@@ -37,3 +37,9 @@ idf_component_register(
 )
 
 add_definitions(-DLV_LVGL_H_INCLUDE_SIMPLE)
+
+target_compile_definitions(${COMPONENT_LIB} PRIVATE
+    WIFI_SSID=${ENV_WIFI_SSID}
+    WIFI_PASSWORD=${ENV_WIFI_PASSWORD}
+    SMARTTHINGS_API_TOKEN=${SMARTTHINGS_API_TOKEN}
+)

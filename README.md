@@ -14,3 +14,10 @@ const uint8_t ac_on_json[] = {
 };
 const size_t ac_on_json_size = sizeof(ac_on_json);
 ```
+
+Create .env file with WiFi SSID and password, and Samsung SmartThings API token
+```
+WIFI_SSID="YourSSID"
+WIFI_PASSWORD="YourPass"
+MQTT_BROKER="12345-your-token-here-6789"
+```

@@ -4,11 +4,7 @@
 #include "button/button.h"
 #include <stdio.h>
 #include "widgets/lottie/lv_lottie.h"
-#include "ui/assets/ac_on_json.h"
-#include "ui/assets/circle_json.h"
-#include "ui/assets/lottie_test_json.h"
-#include "esp_heap_caps.h"
-#include "ui/assets/check_lottie_json.h"
+#include "ui/assets/images/ac_on_json.h"
 
 #define MAX_DEVICES 4
 #define LOTTIE_WIDTH  53
