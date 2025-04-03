@@ -52,11 +52,14 @@ typedef struct {
     const lv_image_dsc_t *icon_device_on_state;  // Static device "on" image
     const uint8_t *lottie_on_anim; // Lottie animation for turning on
     size_t lottie_on_anim_size;
+    const uint8_t *lottie_off_anim; // Lottie animation for turning off
+    size_t lottie_off_anim_size;
     uint16_t lottie_width;
     uint16_t lottie_height;
 } device_asset_t;
 
 void ui_create(void);
+void update_device_ui(int index);
 void ui_set_styles(void);
 void on_button_pressed(void);
 void on_button_held(void);

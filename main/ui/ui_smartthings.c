@@ -38,6 +38,8 @@ static const device_asset_t DEVICE_ASSETS[] = {
         .icon_device_on_state = NULL,
         .lottie_on_anim = anim_ac_on_json,
         .lottie_on_anim_size = anim_ac_on_json_size,
+        .lottie_off_anim = NULL,
+        .lottie_off_anim_size = 0,
         .lottie_width = LOTTIE_AC_ON_WIDTH,
         .lottie_height = LOTTIE_AC_ON_HEIGHT,
     },
@@ -46,6 +48,8 @@ static const device_asset_t DEVICE_ASSETS[] = {
         .icon_device_on_state = &img_tv_on,
         .lottie_on_anim = anim_tv_turn_on_json,
         .lottie_on_anim_size = anim_tv_turn_on_json_size,
+        .lottie_off_anim = anim_tv_turn_off_json,
+        .lottie_off_anim_size = anim_tv_turn_off_json_size,
         .lottie_width = LOTTIE_TV_ON_WIDTH,
         .lottie_height = LOTTIE_TV_ON_HEIGHT,
     }
@@ -74,7 +78,7 @@ static void tv_lottie_anim_ready_cb(lv_anim_t *a)
     lv_anim_set_ready_cb(a, NULL);
 }
 
-static void create_tv_lottie(device_ui_t *d, const device_asset_t *assets)
+static void lottie_create_tv_turn_on(device_ui_t *d, const device_asset_t *assets)
 {
     // 1) Create brand new lottie
     d->lottie = lv_lottie_create(d->container);
@@ -98,7 +102,48 @@ static void create_tv_lottie(device_ui_t *d, const device_asset_t *assets)
     }
 }
 
-static void update_device_ui(int index)
+static void tv_lottie_anim_off_ready_cb(lv_anim_t *a)
+{
+    device_ui_t *d = (device_ui_t *)lv_anim_get_user_data(a);
+    if (!d) return;
+
+    // Hide animation, show OFF icon
+    lv_obj_add_flag(d->lottie, LV_OBJ_FLAG_HIDDEN);
+    if (d->img_device_off) {
+        lv_obj_clear_flag(d->img_device_off, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // Remove animation
+    lv_anim_set_ready_cb(a, NULL);
+
+    animation_in_progress = false;
+    update_device_ui(current_device_index);
+}
+
+static void lottie_create_tv_turn_off(device_ui_t *d, const device_asset_t *assets)
+{
+    // Remove previous lottie if exists
+    if (d->lottie) {
+        lv_obj_del(d->lottie);
+        d->lottie = NULL;
+    }
+
+    d->lottie = lv_lottie_create(d->container);
+    lv_obj_set_size(d->lottie, assets->lottie_width, assets->lottie_height);
+    lv_obj_align(d->lottie, LV_ALIGN_TOP_LEFT, 31 - DEVICE_CONTAINER_OFFSET_X, 54 - DEVICE_CONTAINER_OFFSET_Y);
+    lv_lottie_set_buffer(d->lottie, assets->lottie_width, assets->lottie_height, lottie_buf);
+    lv_lottie_set_src_data(d->lottie, assets->lottie_off_anim, assets->lottie_off_anim_size);
+    lv_obj_clear_flag(d->lottie, LV_OBJ_FLAG_HIDDEN);
+
+    lv_anim_t *anim = lv_lottie_get_anim(d->lottie);
+    if (anim) {
+        lv_anim_set_user_data(anim, d);
+        lv_anim_set_repeat_count(anim, 1);
+        lv_anim_set_ready_cb(anim, tv_lottie_anim_off_ready_cb);
+    }
+}
+
+void update_device_ui(int index)
 {
     // Handle currently visible device
     device_ui_t *d = &devices[index];
@@ -204,24 +249,42 @@ void on_button_held(void)
     if(animation_in_progress) return;
 
     device_ui_t *d = &devices[current_device_index];
+    const device_asset_t *assets = &DEVICE_ASSETS[d->type];
 
     bool was_on = d->is_on;
     d->is_on = !d->is_on;
 
-    // If it's a TV going from off -> on, destroy & re-create the Lottie
-    if(d->type == DEVICE_TYPE_TV && !was_on && d->is_on) {
-        if(d->lottie) {
+    // TV: OFF → ON (play turn-on)
+    if (d->type == DEVICE_TYPE_TV && !was_on && d->is_on) {
+        if (d->lottie) {
             lv_obj_del(d->lottie);
             d->lottie = NULL;
         }
-        if(d->img_device_on) {
-            lv_obj_add_flag(d->img_device_on, LV_OBJ_FLAG_HIDDEN); // hide the static ON for now
+        if (d->img_device_on) {
+            lv_obj_add_flag(d->img_device_on, LV_OBJ_FLAG_HIDDEN);
         }
-        // Re-create fresh TV Lottie
-        create_tv_lottie(d, &DEVICE_ASSETS[d->type]);
+        lottie_create_tv_turn_on(d, assets);
+        update_device_ui(current_device_index);
     }
 
-    update_device_ui(current_device_index);
+    // TV: ON → OFF (play turn-off)
+    else if (d->type == DEVICE_TYPE_TV && was_on && !d->is_on) {
+        if (d->lottie) {
+            lv_obj_del(d->lottie);
+            d->lottie = NULL;
+        }
+        if (d->img_device_on) {
+            lv_obj_add_flag(d->img_device_on, LV_OBJ_FLAG_HIDDEN);  // Hide static ON
+        }
+        if (d->img_device_off) {
+            lv_obj_add_flag(d->img_device_off, LV_OBJ_FLAG_HIDDEN); // Hide OFF until anim ends
+        }
+        animation_in_progress = true;
+        lottie_create_tv_turn_off(d, assets);
+    }
+    else {
+        update_device_ui(current_device_index);
+    }
 }
 
 void ui_set_styles(void)
