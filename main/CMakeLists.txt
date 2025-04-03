@@ -14,6 +14,8 @@ set(UI_ASSETS
     "ui/assets/images/img_on_off.c"
     "ui/assets/images/img_tv_on.c"
     "ui/assets/images/img_tv_off.c"
+    "ui/assets/images/img_btn_on_state.c"
+    "ui/assets/images/img_btn_off_state.c"
 )
 
 set(UI_FONTS

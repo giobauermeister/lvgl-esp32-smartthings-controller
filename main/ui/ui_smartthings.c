@@ -4,8 +4,10 @@
 #include "button/button.h"
 #include <stdio.h>
 #include "widgets/lottie/lv_lottie.h"
-#include "ui/assets/images/ac_on_json.h"
-#include "ui/assets/images/tv_on_json.h"
+#include "ui/assets/animations/anim_tv_on_json.h"
+#include "ui/assets/animations/anim_ac_on_json.h"
+#include "ui/assets/animations/anim_tv_turn_on_json.h"
+#include "ui/assets/animations/anim_tv_turn_off_json.h"
 
 #define MAX_DEVICES 4
 #define LOTTIE_AC_ON_WIDTH  53
@@ -53,26 +55,26 @@ static const device_asset_t DEVICE_ASSETS[] = {
     [DEVICE_TYPE_AC] = {
         .icon_off = &img_ac_off,
         .icon_on = NULL,
-        .lottie_on_anim = ac_on_json,
-        .lottie_on_anim_size = ac_on_json_size,
+        .lottie_on_anim = anim_ac_on_json,
+        .lottie_on_anim_size = anim_ac_on_json_size,
         .lottie_width = LOTTIE_AC_ON_WIDTH,
         .lottie_height = LOTTIE_AC_ON_HEIGHT,
     },
     [DEVICE_TYPE_TV] = {
         .icon_off = &img_tv_off,
         .icon_on = &img_tv_on,
-        .lottie_on_anim = tv_on_json,
-        .lottie_on_anim_size = tv_on_json_size,
+        .lottie_on_anim = anim_tv_turn_on_json,
+        .lottie_on_anim_size = anim_tv_turn_on_json_size,
         .lottie_width = LOTTIE_TV_ON_WIDTH,
         .lottie_height = LOTTIE_TV_ON_HEIGHT,
     }
 };
 
 static device_ui_t devices[MAX_DEVICES] = {
-    { .is_on = false, .container = NULL, .img_on = NULL, .img_off = NULL, .lottie = NULL, .label_device_status = NULL, .type = DEVICE_TYPE_TV },
+    { .is_on = true, .container = NULL, .img_on = NULL, .img_off = NULL, .lottie = NULL, .label_device_status = NULL, .type = DEVICE_TYPE_TV },
     { .is_on = true,  .container = NULL, .img_on = NULL, .img_off = NULL, .lottie = NULL, .label_device_status = NULL, .type = DEVICE_TYPE_AC },
     { .is_on = false, .container = NULL, .img_on = NULL, .img_off = NULL, .lottie = NULL, .label_device_status = NULL, .type = DEVICE_TYPE_TV },
-    { .is_on = true,  .container = NULL, .img_on = NULL, .img_off = NULL, .lottie = NULL, .label_device_status = NULL, .type = DEVICE_TYPE_AC }
+    { .is_on = false,  .container = NULL, .img_on = NULL, .img_off = NULL, .lottie = NULL, .label_device_status = NULL, .type = DEVICE_TYPE_AC }
 };
 
 static int current_device_index = 0;
@@ -276,7 +278,7 @@ void ui_create(void)
     for(int i = 0; i < device_count; i++)
     {
         const device_asset_t *assets = &DEVICE_ASSETS[devices[i].type];
-        devices[i].is_on = false;
+        // devices[i].is_on = false;
 
         devices[i].container = lv_obj_create(app_container);
         lv_obj_set_size(devices[i].container, 286, 111);

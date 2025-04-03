@@ -11,6 +11,8 @@ LV_IMAGE_DECLARE(img_on_off);
 LV_IMAGE_DECLARE(ac_on);
 LV_IMAGE_DECLARE(img_tv_on);
 LV_IMAGE_DECLARE(img_tv_off);
+LV_IMAGE_DECLARE(img_btn_on_state);
+LV_IMAGE_DECLARE(img_btn_off_state);
 
 LV_FONT_DECLARE(lv_font_montserrat_bold_24);
 LV_FONT_DECLARE(lv_font_montserrat_semibold_16);
