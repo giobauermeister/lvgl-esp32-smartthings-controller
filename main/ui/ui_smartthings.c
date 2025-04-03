@@ -8,17 +8,21 @@
 #include "ui/assets/animations/anim_ac_on_json.h"
 #include "ui/assets/animations/anim_tv_turn_on_json.h"
 #include "ui/assets/animations/anim_tv_turn_off_json.h"
+#include "ui/assets/animations/anim_loading_json.h"
 
 #define MAX_DEVICES 5
 #define LOTTIE_AC_ON_WIDTH  53
 #define LOTTIE_AC_ON_HEIGHT 46
 #define LOTTIE_TV_ON_WIDTH  44
 #define LOTTIE_TV_ON_HEIGHT 38
+#define LOTTIE_LOADING_WIDTH  86
+#define LOTTIE_LOADING_HEIGTH 86
 #define LOTTIE_MAX_WIDTH  LOTTIE_AC_ON_WIDTH
 #define LOTTIE_MAX_HEIGHT LOTTIE_AC_ON_HEIGHT
 #define SLIDE_SPEED 300
 
 static uint8_t lottie_buf[LOTTIE_MAX_WIDTH * LOTTIE_MAX_HEIGHT * 4]; // ARGB8888, 4 bytes per pixel
+static uint8_t lottie_loading_buf[LOTTIE_LOADING_WIDTH * LOTTIE_LOADING_HEIGTH * 4]; // ARGB8888, 4 bytes per pixel
 static int device_count = MAX_DEVICES;
 static lv_obj_t *device_indicators[MAX_DEVICES];
 static lv_obj_t *on_off_switch = NULL;
