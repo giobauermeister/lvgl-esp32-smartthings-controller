@@ -17,12 +17,44 @@ LV_IMAGE_DECLARE(img_btn_off_state);
 LV_FONT_DECLARE(lv_font_montserrat_bold_24);
 LV_FONT_DECLARE(lv_font_montserrat_semibold_16);
 
-#define UI_COLOR_BG_DEVICE_CONTAINER    lv_color_hex(0xF6F6F6)
-#define UI_COLOR_DEVICE_NAME            lv_color_hex(0x313131)
-#define UI_COLOR_DEVICE_STATUS          lv_color_hex(0x8A8A8A)
+#define UI_COLOR_BG_DEVICE_CONTAINER        lv_color_hex(0xF6F6F6)
+#define UI_COLOR_DEVICE_NAME                lv_color_hex(0x313131)
+#define UI_COLOR_DEVICE_STATUS              lv_color_hex(0x8A8A8A)
+#define UI_COLOR_DEVICE_INDICATOR_SELECTED  lv_color_hex(0xF6F6F6)
+#define UI_COLOR_DEVICE_INDICATOR           lv_color_hex(0x797979)
 
 #define DEVICE_CONTAINER_OFFSET_X  17
 #define DEVICE_CONTAINER_OFFSET_Y  42
+
+typedef struct {
+    int new_index;
+} anim_user_data_t;
+
+typedef enum {
+    DEVICE_TYPE_AC,
+    DEVICE_TYPE_TV
+} device_type_t;
+
+typedef struct {
+    bool is_on;
+    lv_obj_t *container;
+    lv_obj_t *img_device_off;
+    lv_obj_t *img_device_on;
+    lv_obj_t *img_btn_off;
+    lv_obj_t *img_btn_on;
+    lv_obj_t *lottie;
+    lv_obj_t *label_device_status;
+    device_type_t type;
+} device_ui_t;
+
+typedef struct {
+    const lv_image_dsc_t *icon_device_off_state; // Static device "off" image
+    const lv_image_dsc_t *icon_device_on_state;  // Static device "on" image
+    const uint8_t *lottie_on_anim; // Lottie animation for turning on
+    size_t lottie_on_anim_size;
+    uint16_t lottie_width;
+    uint16_t lottie_height;
+} device_asset_t;
 
 void ui_create(void);
 void ui_set_styles(void);
