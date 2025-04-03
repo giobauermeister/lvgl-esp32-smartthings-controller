@@ -8,16 +8,12 @@
 #include "freertos/task.h"
 #include "freertos/semphr.h"
 
-#define LONG_PRESS_TIME_MS  2000
+#define LONG_PRESS_TIME_MS  1300
 #define DEBOUNCE_TIME_MS    50
 
 static const char *TAG_BUTTON = "BUTTON";
 static void (*button_user_callback)(void) = NULL;
 static void (*button_longpress_callback)(void) = NULL;
-// static int64_t last_press_time_us = 0;
-// static int64_t last_release_time_us = 0;
-// static const int64_t debounce_time_us = 200 * 1000; // 200ms
-// static bool button_pressed = false;
 
 static SemaphoreHandle_t button_semaphore = NULL;
 static TaskHandle_t button_task_handle = NULL;
@@ -70,27 +66,6 @@ static void button_task(void *arg)
         }
     }
 }
-
-// static void IRAM_ATTR button_isr_handler(void *arg)
-// {
-//     bool level = gpio_get_level(BUTTON_GPIO) == 0;
-//     int64_t now = esp_timer_get_time();
-
-//     if (level && !button_pressed && (now - last_press_time_us > debounce_time_us)) {
-//         // New press
-//         last_press_time_us = now;
-//         button_pressed = true;
-
-//         if (button_user_callback) {
-//             lv_async_call((lv_async_cb_t)button_user_callback, NULL);
-//         }
-
-//     } else if (!level && button_pressed && (now - last_release_time_us > debounce_time_us)) {
-//         // Released
-//         last_release_time_us = now;
-//         button_pressed = false;
-//     }
-// }
 
 void button_init(void)
 {

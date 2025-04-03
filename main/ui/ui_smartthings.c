@@ -5,12 +5,17 @@
 #include <stdio.h>
 #include "widgets/lottie/lv_lottie.h"
 #include "ui/assets/images/ac_on_json.h"
+#include "ui/assets/images/tv_on_json.h"
 
 #define MAX_DEVICES 4
-#define LOTTIE_WIDTH  53
-#define LOTTIE_HEIGHT 46
+#define LOTTIE_AC_ON_WIDTH  53
+#define LOTTIE_AC_ON_HEIGHT 46
+#define LOTTIE_TV_ON_WIDTH  44
+#define LOTTIE_TV_ON_HEIGHT 38
+#define LOTTIE_MAX_WIDTH  LOTTIE_AC_ON_WIDTH
+#define LOTTIE_MAX_HEIGHT LOTTIE_AC_ON_HEIGHT
 
-static uint8_t lottie_buf[LOTTIE_WIDTH * LOTTIE_HEIGHT * 4]; // ARGB8888, 4 bytes per pixel
+static uint8_t lottie_buf[LOTTIE_MAX_WIDTH * LOTTIE_MAX_HEIGHT * 4]; // ARGB8888, 4 bytes per pixel
 
 static int device_count = MAX_DEVICES;
 
@@ -20,15 +25,56 @@ typedef struct {
 
 static anim_user_data_t anim_data;
 
+typedef enum {
+    DEVICE_TYPE_AC,
+    DEVICE_TYPE_TV
+} device_type_t;
+
 typedef struct {
     bool is_on;
     lv_obj_t *container;
     lv_obj_t *img_off;
+    lv_obj_t *img_on;
     lv_obj_t *lottie;
     lv_obj_t *label_device_status;
+    device_type_t type;
 } device_ui_t;
 
-static device_ui_t devices[MAX_DEVICES];
+typedef struct {
+    const lv_image_dsc_t *icon_off; // Static "off" image
+    const lv_image_dsc_t *icon_on;  // Static "on" image
+    const uint8_t *lottie_on_anim; // Lottie animation for turning on
+    size_t lottie_on_anim_size;
+    uint16_t lottie_width;
+    uint16_t lottie_height;
+} device_asset_t;
+
+static const device_asset_t DEVICE_ASSETS[] = {
+    [DEVICE_TYPE_AC] = {
+        .icon_off = &img_ac_off,
+        .icon_on = NULL,
+        .lottie_on_anim = ac_on_json,
+        .lottie_on_anim_size = ac_on_json_size,
+        .lottie_width = LOTTIE_AC_ON_WIDTH,
+        .lottie_height = LOTTIE_AC_ON_HEIGHT,
+    },
+    [DEVICE_TYPE_TV] = {
+        .icon_off = &img_tv_off,
+        .icon_on = &img_tv_on,
+        .lottie_on_anim = tv_on_json,
+        .lottie_on_anim_size = tv_on_json_size,
+        .lottie_width = LOTTIE_TV_ON_WIDTH,
+        .lottie_height = LOTTIE_TV_ON_HEIGHT,
+    }
+};
+
+static device_ui_t devices[MAX_DEVICES] = {
+    { .is_on = false, .container = NULL, .img_on = NULL, .img_off = NULL, .lottie = NULL, .label_device_status = NULL, .type = DEVICE_TYPE_TV },
+    { .is_on = true,  .container = NULL, .img_on = NULL, .img_off = NULL, .lottie = NULL, .label_device_status = NULL, .type = DEVICE_TYPE_AC },
+    { .is_on = false, .container = NULL, .img_on = NULL, .img_off = NULL, .lottie = NULL, .label_device_status = NULL, .type = DEVICE_TYPE_TV },
+    { .is_on = true,  .container = NULL, .img_on = NULL, .img_off = NULL, .lottie = NULL, .label_device_status = NULL, .type = DEVICE_TYPE_AC }
+};
+
 static int current_device_index = 0;
 
 static bool styles_inited = false;
@@ -36,6 +82,45 @@ static lv_style_t style_app_container;
 static lv_style_t style_app_background;
 static lv_style_t style_device_container;
 static bool animation_in_progress = false;
+
+static void tv_lottie_anim_ready_cb(lv_anim_t *a)
+{
+    device_ui_t *d = (device_ui_t *)lv_anim_get_user_data(a);
+    if (!d) return;
+
+    // Hide the animation and show the static ON icon
+    lv_obj_add_flag(d->lottie, LV_OBJ_FLAG_HIDDEN);
+    if (d->img_on) {
+        lv_obj_clear_flag(d->img_on, LV_OBJ_FLAG_HIDDEN);
+    }
+
+    // Optional: remove ready_cb to avoid calling again
+    lv_anim_set_ready_cb(a, NULL);
+}
+
+static void create_tv_lottie(device_ui_t *d, const device_asset_t *assets)
+{
+    // 1) Create brand new lottie
+    d->lottie = lv_lottie_create(d->container);
+    lv_obj_set_size(d->lottie, assets->lottie_width, assets->lottie_height);
+    lv_obj_align(d->lottie, LV_ALIGN_TOP_LEFT, 31 - DEVICE_CONTAINER_OFFSET_X, 54 - DEVICE_CONTAINER_OFFSET_Y);
+
+    // 2) Set buffer + JSON data
+    lv_lottie_set_buffer(d->lottie, assets->lottie_width, assets->lottie_height, lottie_buf);
+    lv_lottie_set_src_data(d->lottie, assets->lottie_on_anim, assets->lottie_on_anim_size);
+
+    // 3) Hide by default or show immediately?
+    // up to you – let's assume we show it now
+    lv_obj_clear_flag(d->lottie, LV_OBJ_FLAG_HIDDEN);
+
+    // 4) Single-run config
+    lv_anim_t *anim = lv_lottie_get_anim(d->lottie);
+    if(anim) {
+        lv_anim_set_user_data(anim, d);
+        lv_anim_set_repeat_count(anim, 1);
+        lv_anim_set_ready_cb(anim, tv_lottie_anim_ready_cb);
+    }
+}
 
 static void update_device_ui(int index)
 {
@@ -54,12 +139,21 @@ static void update_device_ui(int index)
 
     if (d->is_on) {
         lv_label_set_text(d->label_device_status, "Current 25°C");
-        lv_lottie_set_buffer(d->lottie, LOTTIE_WIDTH, LOTTIE_HEIGHT, lottie_buf);
-        lv_obj_clear_flag(d->lottie, LV_OBJ_FLAG_HIDDEN);
         lv_obj_add_flag(d->img_off, LV_OBJ_FLAG_HIDDEN);
+
+        // If AC, just show its existing lottie
+        if(d->type == DEVICE_TYPE_AC) {
+            lv_obj_clear_flag(d->lottie, LV_OBJ_FLAG_HIDDEN);
+        }
+        // If TV, we assume `on_button_held()` already created the Lottie if needed
+        // so we just show it if it exists
+        else if(d->type == DEVICE_TYPE_TV) {
+            lv_obj_clear_flag(d->img_on, LV_OBJ_FLAG_HIDDEN);
+        }
     } else {
         lv_label_set_text(d->label_device_status, "Off");
         lv_obj_add_flag(d->lottie, LV_OBJ_FLAG_HIDDEN);
+        if (d->img_on) lv_obj_add_flag(d->img_on, LV_OBJ_FLAG_HIDDEN);
         lv_obj_clear_flag(d->img_off, LV_OBJ_FLAG_HIDDEN);
     }
 }
@@ -110,7 +204,24 @@ void on_button_held(void)
 {
     if(animation_in_progress) return;
 
-    devices[current_device_index].is_on = !devices[current_device_index].is_on;
+    device_ui_t *d = &devices[current_device_index];
+
+    bool was_on = d->is_on;
+    d->is_on = !d->is_on;
+
+    // If it's a TV going from off -> on, destroy & re-create the Lottie
+    if(d->type == DEVICE_TYPE_TV && !was_on && d->is_on) {
+        if(d->lottie) {
+            lv_obj_del(d->lottie);
+            d->lottie = NULL;
+        }
+        if(d->img_on) {
+            lv_obj_add_flag(d->img_on, LV_OBJ_FLAG_HIDDEN); // hide the static ON for now
+        }
+        // Re-create fresh TV Lottie
+        create_tv_lottie(d, &DEVICE_ASSETS[d->type]);
+    }
+
     update_device_ui(current_device_index);
 }
 
@@ -146,6 +257,7 @@ void ui_create(void)
     lv_obj_t *app_container = lv_obj_create(lv_screen_active());
     lv_obj_set_size(app_container, LCD_WIDTH, LCD_HEIGHT);
     lv_obj_add_style(app_container, &style_app_container, 0);
+    lv_obj_set_scrollbar_mode(app_container, LV_SCROLLBAR_MODE_OFF);
 
     lv_obj_t *app_background = lv_image_create(app_container);
     lv_image_set_src(app_background, &img_app_background);
@@ -163,6 +275,7 @@ void ui_create(void)
 
     for(int i = 0; i < device_count; i++)
     {
+        const device_asset_t *assets = &DEVICE_ASSETS[devices[i].type];
         devices[i].is_on = false;
 
         devices[i].container = lv_obj_create(app_container);
@@ -173,16 +286,24 @@ void ui_create(void)
         lv_obj_add_style(devices[i].container, &style_device_container, 0);
         lv_obj_set_pos(devices[i].container, i == 0 ? 17 : 320, 42);
 
-        // Device icon off state
+        // Device icon OFF state
         devices[i].img_off = lv_image_create(devices[i].container);
-        lv_image_set_src(devices[i].img_off, &img_ac_off);
+        lv_image_set_src(devices[i].img_off, assets->icon_off);
         lv_obj_align(devices[i].img_off, LV_ALIGN_TOP_LEFT, 31 - DEVICE_CONTAINER_OFFSET_X, 54 - DEVICE_CONTAINER_OFFSET_Y);
 
-        // Device on animation
+        // Device icon ON state for devices that have it
+        if (assets->icon_on != NULL) {
+            devices[i].img_on = lv_image_create(devices[i].container);
+            lv_image_set_src(devices[i].img_on, assets->icon_on);
+            lv_obj_align(devices[i].img_on, LV_ALIGN_TOP_LEFT, 31 - DEVICE_CONTAINER_OFFSET_X, 54 - DEVICE_CONTAINER_OFFSET_Y);
+            lv_obj_add_flag(devices[i].img_on, LV_OBJ_FLAG_HIDDEN); // start hidden
+        }
+
+         // Device ON animation
         devices[i].lottie = lv_lottie_create(devices[i].container);
-        lv_obj_set_size(devices[i].lottie, LOTTIE_WIDTH, LOTTIE_HEIGHT);
-        lv_lottie_set_buffer(devices[i].lottie, LOTTIE_WIDTH, LOTTIE_HEIGHT, lottie_buf);
-        lv_lottie_set_src_data(devices[i].lottie, ac_on_json, ac_on_json_size);
+        lv_obj_set_size(devices[i].lottie, assets->lottie_width, assets->lottie_height);  // can vary per type if needed
+        lv_lottie_set_buffer(devices[i].lottie, assets->lottie_width, assets->lottie_height, lottie_buf);
+        lv_lottie_set_src_data(devices[i].lottie, assets->lottie_on_anim, assets->lottie_on_anim_size);
         lv_obj_add_flag(devices[i].lottie, LV_OBJ_FLAG_HIDDEN);
         lv_obj_align(devices[i].lottie, LV_ALIGN_TOP_LEFT, 31 - DEVICE_CONTAINER_OFFSET_X, 54 - DEVICE_CONTAINER_OFFSET_Y);
 

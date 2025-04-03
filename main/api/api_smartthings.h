@@ -1,0 +1,6 @@
+#ifndef _API_SMARTTHINGS_H_
+#define _API_SMARTTHINGS_H_
+
+
+
+#endif // _API_SMARTTHINGS_H_

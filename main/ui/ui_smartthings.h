@@ -9,6 +9,8 @@ LV_IMAGE_DECLARE(img_ac_icon_static);
 LV_IMAGE_DECLARE(img_ac_off);
 LV_IMAGE_DECLARE(img_on_off);
 LV_IMAGE_DECLARE(ac_on);
+LV_IMAGE_DECLARE(img_tv_on);
+LV_IMAGE_DECLARE(img_tv_off);
 
 LV_FONT_DECLARE(lv_font_montserrat_bold_24);
 LV_FONT_DECLARE(lv_font_montserrat_semibold_16);
