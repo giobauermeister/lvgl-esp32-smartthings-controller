@@ -291,6 +291,12 @@ void on_button_held(void)
     }
 }
 
+void ui_switch_to_main_screen(void)
+{
+    lv_obj_clean(lv_screen_active()); // clean current screen (loading)
+    ui_create(); // your existing UI creation function
+}
+
 void ui_set_styles(void)
 {
     if(!styles_inited) {
@@ -423,4 +429,34 @@ void ui_create(void)
     }
 
     update_device_ui(current_device_index);
+}
+
+void ui_create_loading_sceen(void)
+{
+    ui_set_styles();
+
+    lv_obj_t *loading_container = lv_obj_create(lv_screen_active());
+    lv_obj_set_size(loading_container, LCD_WIDTH, LCD_HEIGHT);
+    lv_obj_add_style(loading_container, &style_app_container, 0);
+    lv_obj_set_scrollbar_mode(loading_container, LV_SCROLLBAR_MODE_OFF);
+
+    lv_obj_t *app_background = lv_image_create(loading_container);
+    lv_image_set_src(app_background, &img_app_background);
+    lv_obj_center(app_background);
+
+    lv_obj_t *st_icon = lv_image_create(loading_container);
+    lv_image_set_src(st_icon, &img_st_icon_w65_h65);
+    lv_obj_align(st_icon, LV_ALIGN_TOP_LEFT, 10, 10);
+
+    lv_obj_t *label_smartthings = lv_label_create(loading_container);
+    lv_label_set_text(label_smartthings, "SmartThings");
+    lv_obj_set_style_text_font(label_smartthings, &lv_font_montserrat_bold_34, LV_PART_MAIN);
+    lv_obj_set_style_text_color(label_smartthings, lv_color_white(), LV_PART_MAIN);
+    lv_obj_align(label_smartthings, LV_ALIGN_TOP_LEFT, 80, 22);
+
+    lv_obj_t *loading_lottie = lv_lottie_create(loading_container);
+    lv_obj_set_size(loading_lottie, LOTTIE_LOADING_WIDTH, LOTTIE_LOADING_HEIGTH);  // can vary per type if needed
+    lv_lottie_set_buffer(loading_lottie, LOTTIE_LOADING_WIDTH, LOTTIE_LOADING_HEIGTH, lottie_loading_buf);
+    lv_lottie_set_src_data(loading_lottie, anim_loading_json, anim_loading_json_size);
+    lv_obj_align(loading_lottie, LV_ALIGN_TOP_LEFT, 115, 70);
 }

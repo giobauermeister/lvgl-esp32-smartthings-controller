@@ -4,6 +4,9 @@
 #include "cJSON.h"
 #include "esp_http_client.h"
 #include "esp_crt_bundle.h"
+#include "ui/ui_smartthings.h"
+#include "wifi/wifi_init.h"
+#include "lvgl.h"
 
 #define STR(x) #x
 #define XSTR(x) STR(x)
@@ -45,6 +48,26 @@ const char* map_channel_name(const char* raw_value) {
     if (strcmp(raw_value, "org.tizen.primevideo") == 0) return "Prime Video";
     if (strcmp(raw_value, "org.tizen.disneyplus-app") == 0) return "Disney+";
     return raw_value;  // fallback to raw if not found
+}
+
+void smartthings_init_task(void *param)
+{
+    wifi_init_sta(); // blocking until connected
+
+    smartthings_api_GET_devices();
+
+    const smartthings_device_t *list = smartthings_get_devices();
+    int count = smartthings_get_device_count();
+
+    for (int i = 0; i < count; i++) {
+        smartthings_api_GET_device_status(&list[i]);
+        vTaskDelay(pdMS_TO_TICKS(200));
+    }
+
+    // After fetching devices and status, switch to main UI
+    lv_async_call((lv_async_cb_t)ui_switch_to_main_screen, NULL);
+
+    vTaskDelete(NULL); // cleanup this task
 }
 
 static esp_err_t _http_event_handler(esp_http_client_event_t *evt)
@@ -354,7 +377,7 @@ void smartthings_api_get_tv_status(const smartthings_device_t *device)
 {
     cJSON *json = NULL;
 
-    if (smartthings_get_capability_status(device->device_id, "tvChannel", &json))
+    if (smartthings_api_get_device_capability_status(device->device_id, "tvChannel", &json))
     {
         const cJSON *channel_name = cJSON_GetObjectItem(json, "tvChannelName");
         if (channel_name && cJSON_IsObject(channel_name))
@@ -373,7 +396,7 @@ void smartthings_ac_status(const smartthings_device_t *device)
 {
     cJSON *json = NULL;
 
-    if (smartthings_get_capability_status(device->device_id, "temperatureMeasurement", &json)) {
+    if (smartthings_api_get_device_capability_status(device->device_id, "temperatureMeasurement", &json)) {
         const cJSON *temp = cJSON_GetObjectItem(json, "temperature");
         if (temp) {
             ESP_LOGI(TAG_HTTP, "Current Temp: %.1f°C", cJSON_GetObjectItem(temp, "value")->valuedouble);
@@ -381,7 +404,7 @@ void smartthings_ac_status(const smartthings_device_t *device)
         cJSON_Delete(json);
     }
 
-    if (smartthings_get_capability_status(device->device_id, "relativeHumidityMeasurement", &json)) {
+    if (smartthings_api_get_device_capability_status(device->device_id, "relativeHumidityMeasurement", &json)) {
         const cJSON *hum = cJSON_GetObjectItem(json, "humidity");
         if (hum) {
             ESP_LOGI(TAG_HTTP, "Humidity: %.0f%%", cJSON_GetObjectItem(hum, "value")->valuedouble);
@@ -389,7 +412,7 @@ void smartthings_ac_status(const smartthings_device_t *device)
         cJSON_Delete(json);
     }
 
-    if (smartthings_get_capability_status(device->device_id, "thermostatCoolingSetpoint", &json)) {
+    if (smartthings_api_get_device_capability_status(device->device_id, "thermostatCoolingSetpoint", &json)) {
         const cJSON *set = cJSON_GetObjectItem(json, "coolingSetpoint");
         if (set) {
             ESP_LOGI(TAG_HTTP, "Cooling setpoint: %.1f°C", cJSON_GetObjectItem(set, "value")->valuedouble);

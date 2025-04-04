@@ -16,9 +16,11 @@ typedef struct {
     char type[64];
 } smartthings_device_t;
 
+void smartthings_init_task(void *param);
+
 void smartthings_api_GET_devices(void);
 void smartthings_api_GET_device_status(const smartthings_device_t *device);
-void smartthings_api_POST_device_status(const smartthings_device_t *device);
+void smartthings_api_POST_device_status(const smartthings_device_t *device, const char *command);
 bool smartthings_api_get_device_capability_status(const char *device_id, const char *capability, cJSON **json_out);
 void smartthings_api_get_tv_status(const smartthings_device_t *device);
 void smartthings_ac_status(const smartthings_device_t *device);

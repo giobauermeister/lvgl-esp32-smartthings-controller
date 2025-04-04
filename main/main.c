@@ -25,21 +25,12 @@ void app_main(void)
     printf("### LVGL ESP32 SmartThings Controller ###\n");
 
     ESP_ERROR_CHECK(nvs_flash_init());
-    wifi_init_sta();
-
-    smartthings_api_GET_devices();
-
-    const smartthings_device_t *list = smartthings_get_devices();
-    int count = smartthings_get_device_count();
-
-    for (int i = 0; i < count; i++) {
-        smartthings_api_GET_device_status(&list[i]);
-        vTaskDelay(pdMS_TO_TICKS(200)); // small delay to avoid flooding
-    }
 
     lvgl_init();
-    ui_create();
+    ui_create_loading_sceen();
     create_lvgl_task();
+
+    xTaskCreatePinnedToCore(smartthings_init_task, "SmartThings Init", 8192, NULL, 5, NULL, 1);
 
     button_set_callback(on_button_pressed);
     button_set_longpress_callback(on_button_held);

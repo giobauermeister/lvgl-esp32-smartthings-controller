@@ -11,6 +11,7 @@ set(SRC_FILES
 set(UI_ASSETS
     "ui/assets/images/img_app_background.c"
     "ui/assets/images/img_st_icon.c"
+    "ui/assets/images/img_st_icon_w65_h65.c"
     "ui/assets/images/img_ac_icon_static.c"
     "ui/assets/images/img_ac_off.c"
     "ui/assets/images/img_on_off.c"
@@ -22,6 +23,7 @@ set(UI_ASSETS
 
 set(UI_FONTS
     "ui/assets/fonts/lv_font_montserrat_bold_24.c"
+    "ui/assets/fonts/lv_font_montserrat_bold_34.c"
     "ui/assets/fonts/lv_font_montserrat_semibold_16.c"
 )
 

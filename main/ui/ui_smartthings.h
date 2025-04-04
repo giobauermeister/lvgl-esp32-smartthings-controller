@@ -5,6 +5,7 @@
 
 LV_IMAGE_DECLARE(img_app_background);
 LV_IMAGE_DECLARE(img_st_icon);
+LV_IMAGE_DECLARE(img_st_icon_w65_h65);
 LV_IMAGE_DECLARE(img_ac_icon_static);
 LV_IMAGE_DECLARE(img_ac_off);
 LV_IMAGE_DECLARE(img_on_off);
@@ -15,6 +16,7 @@ LV_IMAGE_DECLARE(img_btn_on_state);
 LV_IMAGE_DECLARE(img_btn_off_state);
 
 LV_FONT_DECLARE(lv_font_montserrat_bold_24);
+LV_FONT_DECLARE(lv_font_montserrat_bold_34);
 LV_FONT_DECLARE(lv_font_montserrat_semibold_16);
 
 #define UI_COLOR_BG_DEVICE_CONTAINER        lv_color_hex(0xF6F6F6)
@@ -59,6 +61,8 @@ typedef struct {
 } device_asset_t;
 
 void ui_create(void);
+void ui_create_loading_sceen(void);
+void ui_switch_to_main_screen(void);
 void update_device_ui(int index);
 void ui_set_styles(void);
 void on_button_pressed(void);
