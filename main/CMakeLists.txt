@@ -4,6 +4,8 @@ set(SRC_FILES
     "button/button.c"
     "ui/lvgl_init.c"
     "ui/ui_smartthings.c"
+    "wifi/wifi_init.c"
+    "api/api_smartthings.c"
 )
 
 set(UI_ASSETS
@@ -31,6 +33,8 @@ set(REQ_COMPONENTS
     nvs_flash
     esp_wifi
     esp_netif
+    esp_http_client
+    esp-tls
 )
 
 idf_component_register(
@@ -42,8 +46,10 @@ idf_component_register(
 
 add_definitions(-DLV_LVGL_H_INCLUDE_SIMPLE)
 
+target_add_binary_data(${COMPONENT_LIB}  "api/certs/smartthings_root_cert.pem" TEXT)
+
 target_compile_definitions(${COMPONENT_LIB} PRIVATE
     WIFI_SSID=${ENV_WIFI_SSID}
     WIFI_PASSWORD=${ENV_WIFI_PASSWORD}
-    SMARTTHINGS_API_TOKEN=${SMARTTHINGS_API_TOKEN}
+    SMARTTHINGS_API_TOKEN=${ENV_SMARTTHINGS_API_TOKEN}
 )

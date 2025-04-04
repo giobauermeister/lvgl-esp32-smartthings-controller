@@ -21,3 +21,8 @@ WIFI_SSID="YourSSID"
 WIFI_PASSWORD="YourPass"
 MQTT_BROKER="12345-your-token-here-6789"
 ```
+
+Generate certificates for smartthings api
+```
+openssl s_client -showcerts -connect api.smartthings.com:443 </dev/null | awk '/BEGIN/,/END/{ print $0 }' > main/api/certs/smartthings_root_cert.pem
+```
