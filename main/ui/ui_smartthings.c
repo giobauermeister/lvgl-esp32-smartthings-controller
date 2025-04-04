@@ -3,13 +3,16 @@
 #include "display/display_init.h"
 #include "button/button.h"
 #include <stdio.h>
+#include <string.h>
 #include "widgets/lottie/lv_lottie.h"
 #include "ui/assets/animations/anim_tv_on_json.h"
 #include "ui/assets/animations/anim_ac_on_json.h"
 #include "ui/assets/animations/anim_tv_turn_on_json.h"
 #include "ui/assets/animations/anim_tv_turn_off_json.h"
 #include "ui/assets/animations/anim_loading_json.h"
+#include "api/api_smartthings.h"
 
+#define MAX_UI_DEVICES 10
 #define MAX_DEVICES 5
 #define LOTTIE_AC_ON_WIDTH  53
 #define LOTTIE_AC_ON_HEIGHT 46
@@ -23,18 +26,25 @@
 
 static uint8_t lottie_buf[LOTTIE_MAX_WIDTH * LOTTIE_MAX_HEIGHT * 4]; // ARGB8888, 4 bytes per pixel
 static uint8_t lottie_loading_buf[LOTTIE_LOADING_WIDTH * LOTTIE_LOADING_HEIGTH * 4]; // ARGB8888, 4 bytes per pixel
-static int device_count = MAX_DEVICES;
+
+static smartthings_device_t ui_devices[MAX_UI_DEVICES];
+static device_ui_t devices[MAX_UI_DEVICES];
+static int ui_device_count = 0;
+static int api_device_count = 0;
+static int current_device_index = 0;
+
 static lv_obj_t *device_indicators[MAX_DEVICES];
 static lv_obj_t *on_off_switch = NULL;
+
 static anim_user_data_t anim_data;
-static int current_device_index = 0;
+static bool animation_in_progress = false;
+
 static bool styles_inited = false;
 static lv_style_t style_app_container;
 static lv_style_t style_app_background;
 static lv_style_t style_device_container;
 static lv_style_t style_indicator_container;
 static lv_style_t style_device_indicator;
-static bool animation_in_progress = false;
 
 static const device_asset_t DEVICE_ASSETS[] = {
     [DEVICE_TYPE_AC] = {
@@ -57,14 +67,6 @@ static const device_asset_t DEVICE_ASSETS[] = {
         .lottie_width = LOTTIE_TV_ON_WIDTH,
         .lottie_height = LOTTIE_TV_ON_HEIGHT,
     }
-};
-
-static device_ui_t devices[MAX_DEVICES] = {
-    { .is_on = true, .container = NULL, .img_device_on = NULL, .img_device_off = NULL, .lottie = NULL, .label_device_status = NULL, .type = DEVICE_TYPE_TV },
-    { .is_on = true,  .container = NULL, .img_device_on = NULL, .img_device_off = NULL, .lottie = NULL, .label_device_status = NULL, .type = DEVICE_TYPE_AC },
-    { .is_on = false, .container = NULL, .img_device_on = NULL, .img_device_off = NULL, .lottie = NULL, .label_device_status = NULL, .type = DEVICE_TYPE_TV },
-    { .is_on = false,  .container = NULL, .img_device_on = NULL, .img_device_off = NULL, .lottie = NULL, .label_device_status = NULL, .type = DEVICE_TYPE_AC },
-    { .is_on = false,  .container = NULL, .img_device_on = NULL, .img_device_off = NULL, .lottie = NULL, .label_device_status = NULL, .type = DEVICE_TYPE_TV }
 };
 
 static void tv_lottie_anim_ready_cb(lv_anim_t *a)
@@ -152,9 +154,9 @@ void update_device_ui(int index)
     // Handle currently visible device
     device_ui_t *d = &devices[index];
 
-    if (index < 0 || index >= device_count) return;
+    if (index < 0 || index >= ui_device_count) return;
 
-    for (int i = 0; i < device_count; i++) {
+    for (int i = 0; i < ui_device_count; i++) {
         // Non-visible devices don't get animation, just show their current state
         if (i != index) {
             lv_obj_add_flag(devices[i].lottie, LV_OBJ_FLAG_HIDDEN);
@@ -229,7 +231,7 @@ void on_button_pressed(void)
     if(animation_in_progress) return;
 
     int previous_index = current_device_index;
-    current_device_index = (current_device_index + 1) % device_count;
+    current_device_index = (current_device_index + 1) % ui_device_count;
 
     anim_data.new_index = current_device_index;
     animation_in_progress = true;
@@ -297,6 +299,12 @@ void ui_switch_to_main_screen(void)
     ui_create(); // your existing UI creation function
 }
 
+void ui_set_devices(const smartthings_device_t *smartthings_devices, int count)
+{
+    api_device_count = (count > MAX_UI_DEVICES) ? MAX_UI_DEVICES : count;
+    memcpy(ui_devices, smartthings_devices, sizeof(smartthings_device_t) * api_device_count);
+}
+
 void ui_set_styles(void)
 {
     if(!styles_inited) {
@@ -358,10 +366,20 @@ void ui_create(void)
     lv_obj_set_style_text_color(label_smartthings, lv_color_white(), LV_PART_MAIN);
     lv_obj_align(label_smartthings, LV_ALIGN_TOP_LEFT, 50, 8);
 
-    for(int i = 0; i < device_count; i++)
+    ui_device_count = api_device_count;
+    for(int i = 0; i < api_device_count; i++)
     {
-        const device_asset_t *assets = &DEVICE_ASSETS[devices[i].type];
-        // devices[i].is_on = false;
+        const smartthings_device_t *dev = &ui_devices[i];
+        const device_asset_t *assets = &DEVICE_ASSETS[dev->device_type];
+
+        // Initialize fields of struct device_ui_t absed on API data
+        devices[i].type = dev->device_type;
+        devices[i].is_on = dev->is_on;
+        devices[i].container = NULL;
+        devices[i].img_device_on = NULL;
+        devices[i].img_device_off = NULL;
+        devices[i].lottie = NULL;
+        devices[i].label_device_status = NULL;
 
         devices[i].container = lv_obj_create(app_container);
         lv_obj_set_size(devices[i].container, 286, 111);
@@ -400,21 +418,21 @@ void ui_create(void)
 
         // Device Name
         lv_obj_t *label_device_name = lv_label_create(devices[i].container);
-        lv_label_set_text_fmt(label_device_name, "Room Air Conditioner %d", i + 1);
+        lv_label_set_text_fmt(label_device_name, dev->label);
         lv_obj_set_style_text_font(label_device_name, &lv_font_montserrat_semibold_16, LV_PART_MAIN);
         lv_obj_set_style_text_color(label_device_name, UI_COLOR_DEVICE_NAME, LV_PART_MAIN);
         lv_obj_align(label_device_name, LV_ALIGN_TOP_LEFT, 31 - DEVICE_CONTAINER_OFFSET_X, 107 - DEVICE_CONTAINER_OFFSET_Y);
 
         // Device status
         devices[i].label_device_status = lv_label_create(devices[i].container);
-        lv_label_set_text(devices[i].label_device_status, "Off");
+        lv_label_set_text(devices[i].label_device_status, dev->is_on ? "On": "Off");
         lv_obj_set_style_text_font(devices[i].label_device_status, &lv_font_montserrat_semibold_16, LV_PART_MAIN);
         lv_obj_set_style_text_color(devices[i].label_device_status, UI_COLOR_DEVICE_STATUS, LV_PART_MAIN);
         lv_obj_align(devices[i].label_device_status, LV_ALIGN_TOP_LEFT, 31 - DEVICE_CONTAINER_OFFSET_X, 126 - DEVICE_CONTAINER_OFFSET_Y);
     }
 
     lv_obj_t *indicator_container = lv_obj_create(app_container);
-    lv_obj_set_size(indicator_container, device_count * 12, 8);
+    lv_obj_set_size(indicator_container, ui_device_count * 12, 8);
     lv_obj_align(indicator_container, LV_ALIGN_BOTTOM_MID, 0, -5);
     lv_obj_set_layout(indicator_container, LV_LAYOUT_FLEX);
     lv_obj_set_flex_flow(indicator_container, LV_FLEX_FLOW_ROW);
@@ -422,7 +440,7 @@ void ui_create(void)
     lv_obj_set_scrollbar_mode(indicator_container, LV_SCROLLBAR_MODE_OFF);
     lv_obj_add_style(indicator_container, &style_indicator_container, 0);
 
-    for (int i = 0; i < device_count; i++) {
+    for (int i = 0; i < ui_device_count; i++) {
         device_indicators[i] = lv_obj_create(indicator_container);
         lv_obj_set_size(device_indicators[i], 8, 8);
         lv_obj_add_style(device_indicators[i], &style_device_indicator, 0);

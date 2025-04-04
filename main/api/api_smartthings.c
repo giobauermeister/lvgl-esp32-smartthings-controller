@@ -34,7 +34,7 @@ static void smartthings_set_common_headers(esp_http_client_handle_t client)
     esp_http_client_set_header(client, "Content-Type", "application/json");
 }
 
-const smartthings_device_t *smartthings_get_devices(void) {
+smartthings_device_t *smartthings_get_devices(void) {
     return devices;
 }
 
@@ -50,19 +50,27 @@ const char* map_channel_name(const char* raw_value) {
     return raw_value;  // fallback to raw if not found
 }
 
+static smartthings_device_type_t device_type_from_ocf(const char *ocf_type) {
+    if (strcmp(ocf_type, "oic.d.tv") == 0) return DEVICE_TYPE_TV;
+    if (strcmp(ocf_type, "oic.d.airconditioner") == 0) return DEVICE_TYPE_AC;
+    return DEVICE_TYPE_UNKNOWN;
+}
+
 void smartthings_init_task(void *param)
 {
     wifi_init_sta(); // blocking until connected
 
     smartthings_api_GET_devices();
 
-    const smartthings_device_t *list = smartthings_get_devices();
+    smartthings_device_t *list = smartthings_get_devices();
     int count = smartthings_get_device_count();
 
     for (int i = 0; i < count; i++) {
         smartthings_api_GET_device_status(&list[i]);
         vTaskDelay(pdMS_TO_TICKS(200));
     }
+
+    ui_set_devices(list, count);
 
     // After fetching devices and status, switch to main UI
     lv_async_call((lv_async_cb_t)ui_switch_to_main_screen, NULL);
@@ -168,16 +176,25 @@ void smartthings_api_GET_devices(void)
                         const cJSON *id = cJSON_GetObjectItem(device, "deviceId");
                         const cJSON *label = cJSON_GetObjectItem(device, "label");
                         const cJSON *type = cJSON_GetObjectItem(device, "deviceTypeName");
+                        const cJSON *ocf = cJSON_GetObjectItem(device, "ocf");
+                        const cJSON *ocf_type = ocf ? cJSON_GetObjectItem(ocf, "ocfDeviceType") : NULL;
 
                         if (id && label && type && device_count < MAX_DEVICES)
                         {
-                            strncpy(devices[device_count].device_id, id->valuestring, sizeof(devices[device_count].device_id) - 1);
-                            strncpy(devices[device_count].label, label->valuestring, sizeof(devices[device_count].label) - 1);
-                            strncpy(devices[device_count].type, type->valuestring, sizeof(devices[device_count].type) - 1);
-                            device_count++;
+                            smartthings_device_t *dev = &devices[device_count];
 
-                            ESP_LOGI(TAG_HTTP, "Stored Device [%d]: ID=%s, Label=%s, Type=%s",
-                                device_count, id->valuestring, label->valuestring, type->valuestring);
+                            strncpy(dev->device_id, id->valuestring, sizeof(dev->device_id) - 1);
+                            strncpy(dev->label, label->valuestring, sizeof(dev->label) - 1);
+                            strncpy(dev->type, type->valuestring, sizeof(dev->type) - 1);
+                            dev->device_type = (ocf_type && cJSON_IsString(ocf_type))
+                                        ? device_type_from_ocf(ocf_type->valuestring)
+                                        : DEVICE_TYPE_UNKNOWN;
+
+                            ESP_LOGI(TAG_HTTP, "Stored Device [%d]: ID=%s, Label=%s, Type=%s, OCF=%s",
+                                device_count + 1, dev->device_id, dev->label, dev->type,
+                                ocf_type ? ocf_type->valuestring : "N/A");
+                            
+                            device_count++;
                         }
                     }
                 }
@@ -196,7 +213,7 @@ void smartthings_api_GET_devices(void)
     esp_http_client_cleanup(client);
 }
 
-void smartthings_api_GET_device_status(const smartthings_device_t *device)
+void smartthings_api_GET_device_status(smartthings_device_t *device)
 {
     if (!device) {
         ESP_LOGE(TAG_HTTP, "Device pointer is NULL");
@@ -244,8 +261,9 @@ void smartthings_api_GET_device_status(const smartthings_device_t *device)
                     cJSON *value = cJSON_GetObjectItem(switch_obj, "value");
                     cJSON *timestamp = cJSON_GetObjectItem(switch_obj, "timestamp");
 
-                    if (value && timestamp) {
-                        ESP_LOGI(TAG_HTTP, "Status of %s: %s (at %s)", device->label, value->valuestring, timestamp->valuestring);
+                    if (value && cJSON_IsString(value)) {
+                        device->is_on = (strcmp(value->valuestring, "on") == 0);
+                        ESP_LOGI(TAG_HTTP, "Status of %s: %s", device->label, device->is_on ? "ON" : "OFF");
                     }
                 }
                 cJSON_Delete(root);

@@ -2,6 +2,7 @@
 #define _UI_SMARTTHINGS_H_
 
 #include "lvgl.h"
+#include "api/api_smartthings.h"
 
 LV_IMAGE_DECLARE(img_app_background);
 LV_IMAGE_DECLARE(img_st_icon);
@@ -32,11 +33,6 @@ typedef struct {
     int new_index;
 } anim_user_data_t;
 
-typedef enum {
-    DEVICE_TYPE_AC,
-    DEVICE_TYPE_TV
-} device_type_t;
-
 typedef struct {
     bool is_on;
     lv_obj_t *container;
@@ -46,7 +42,7 @@ typedef struct {
     lv_obj_t *img_btn_on;
     lv_obj_t *lottie;
     lv_obj_t *label_device_status;
-    device_type_t type;
+    smartthings_device_type_t type;
 } device_ui_t;
 
 typedef struct {
@@ -63,6 +59,7 @@ typedef struct {
 void ui_create(void);
 void ui_create_loading_sceen(void);
 void ui_switch_to_main_screen(void);
+void ui_set_devices(const smartthings_device_t *devices, int count);
 void update_device_ui(int index);
 void ui_set_styles(void);
 void on_button_pressed(void);
