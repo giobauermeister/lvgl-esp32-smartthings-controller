@@ -42,14 +42,17 @@ int smartthings_get_device_count(void) {
     return device_count;
 }
 
+// Map TV Tizen channel values to friendly names
 const char* map_channel_name(const char* raw_value) {
     if (strcmp(raw_value, "org.tizen.netflix-app") == 0) return "Netflix";
-    if (strcmp(raw_value, "org.tizen.youtube-app") == 0) return "YouTube";
+    if (strcmp(raw_value, "9Ur5IzDKqV.TizenYouTube") == 0) return "YouTube";
     if (strcmp(raw_value, "org.tizen.primevideo") == 0) return "Prime Video";
     if (strcmp(raw_value, "org.tizen.disneyplus-app") == 0) return "Disney+";
+    if (strcmp(raw_value, "com.samsung.tv.aria-video") == 0) return "Apple TV";
     return raw_value;  // fallback to raw if not found
 }
 
+// Map smartthings device types to enum
 static smartthings_device_type_t device_type_from_ocf(const char *ocf_type) {
     if (strcmp(ocf_type, "oic.d.tv") == 0) return DEVICE_TYPE_TV;
     if (strcmp(ocf_type, "oic.d.airconditioner") == 0) return DEVICE_TYPE_AC;
@@ -66,13 +69,15 @@ void smartthings_init_task(void *param)
     int count = smartthings_get_device_count();
 
     for (int i = 0; i < count; i++) {
-        smartthings_api_GET_device_status(&list[i]);
+        smartthings_api_GET_device_status(&list[i]); // Check if device is ON or OFF
+        smartthings_api_populate_device_status(&list[i]); // Get TV Channel or AC Metrics depending on device type
         vTaskDelay(pdMS_TO_TICKS(200));
     }
 
     ui_set_devices(list, count);
 
     // After fetching devices and status, switch to main UI
+    ESP_LOGI(TAG_HTTP, "Devices fetched, switching to main UI...");
     lv_async_call((lv_async_cb_t)ui_switch_to_main_screen, NULL);
 
     vTaskDelete(NULL); // cleanup this task
@@ -87,16 +92,16 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt)
             ESP_LOGE(TAG_HTTP, "HTTP_EVENT_ERROR");
             break;
         case HTTP_EVENT_ON_CONNECTED:
-            ESP_LOGI(TAG_HTTP, "HTTP_EVENT_ON_CONNECTED");
+            // ESP_LOGI(TAG_HTTP, "HTTP_EVENT_ON_CONNECTED");
             break;
         case HTTP_EVENT_HEADER_SENT:
-            ESP_LOGI(TAG_HTTP, "HTTP_EVENT_HEADER_SENT");
+            // ESP_LOGI(TAG_HTTP, "HTTP_EVENT_HEADER_SENT");
             break;
         case HTTP_EVENT_ON_HEADER:
             // ESP_LOGI(TAG_HTTP, "HEADER: %s = %s", evt->header_key, evt->header_value);
             break;
         case HTTP_EVENT_ON_DATA:
-            ESP_LOGI(TAG_HTTP, "HTTP_EVENT_ON_DATA: len = %d", evt->data_len);
+            // ESP_LOGI(TAG_HTTP, "HTTP_EVENT_ON_DATA: len = %d", evt->data_len);
 
             if (!esp_http_client_is_chunked_response(evt->client) && ctx && ctx->buffer) {
                 int remaining = ctx->buffer_size - ctx->received_len - 1;
@@ -109,14 +114,14 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt)
             }
             break;
         case HTTP_EVENT_ON_FINISH:
-            ESP_LOGI(TAG_HTTP, "HTTP_EVENT_ON_FINISH");
-            ESP_LOGI(TAG_HTTP, "HTTP_EVENT_ON_FINISH");
+            // ESP_LOGI(TAG_HTTP, "HTTP_EVENT_ON_FINISH");
+
             if (ctx && ctx->buffer) {
                 ctx->buffer[ctx->received_len] = '\0'; // Null terminate
             }
             break;
         case HTTP_EVENT_DISCONNECTED:
-            ESP_LOGI(TAG_HTTP, "HTTP_EVENT_DISCONNECTED");
+            // ESP_LOGI(TAG_HTTP, "HTTP_EVENT_DISCONNECTED");
             break;
         default:
             ESP_LOGW(TAG_HTTP, "Unhandled event_id: %d", evt->event_id);
@@ -259,7 +264,7 @@ void smartthings_api_GET_device_status(smartthings_device_t *device)
                 cJSON *switch_obj = cJSON_GetObjectItem(root, "switch");
                 if (switch_obj) {
                     cJSON *value = cJSON_GetObjectItem(switch_obj, "value");
-                    cJSON *timestamp = cJSON_GetObjectItem(switch_obj, "timestamp");
+                    // cJSON *timestamp = cJSON_GetObjectItem(switch_obj, "timestamp");
 
                     if (value && cJSON_IsString(value)) {
                         device->is_on = (strcmp(value->valuestring, "on") == 0);
@@ -391,7 +396,7 @@ bool smartthings_api_get_device_capability_status(const char *device_id, const c
     return request_status;
 }
 
-void smartthings_api_get_tv_status(const smartthings_device_t *device)
+void smartthings_api_get_tv_status(smartthings_device_t *device)
 {
     cJSON *json = NULL;
 
@@ -404,20 +409,27 @@ void smartthings_api_get_tv_status(const smartthings_device_t *device)
             if (value && cJSON_IsString(value)) {
                 const char *friendly_name = map_channel_name(value->valuestring);
                 ESP_LOGI(TAG_HTTP, "TV is currently on: %s", friendly_name);
+
+                strncpy(device->device_data.tv.tv_channel, friendly_name, sizeof(device->device_data.tv.tv_channel));
+                device->device_data.tv.tv_channel[sizeof(device->device_data.tv.tv_channel) - 1] = '\0';
             }
         }
         cJSON_Delete(json);
     }
 }
 
-void smartthings_ac_status(const smartthings_device_t *device)
+void smartthings_api_get_ac_status(smartthings_device_t *device)
 {
     cJSON *json = NULL;
 
     if (smartthings_api_get_device_capability_status(device->device_id, "temperatureMeasurement", &json)) {
         const cJSON *temp = cJSON_GetObjectItem(json, "temperature");
         if (temp) {
-            ESP_LOGI(TAG_HTTP, "Current Temp: %.1f°C", cJSON_GetObjectItem(temp, "value")->valuedouble);
+            const cJSON *value = cJSON_GetObjectItem(temp, "value");
+            if (value && cJSON_IsNumber(value)) {
+                device->device_data.ac.temperature = (float)value->valuedouble;
+                ESP_LOGI(TAG_HTTP, "Current Temp: %.1f°C", device->device_data.ac.temperature);
+            }
         }
         cJSON_Delete(json);
     }
@@ -425,7 +437,11 @@ void smartthings_ac_status(const smartthings_device_t *device)
     if (smartthings_api_get_device_capability_status(device->device_id, "relativeHumidityMeasurement", &json)) {
         const cJSON *hum = cJSON_GetObjectItem(json, "humidity");
         if (hum) {
-            ESP_LOGI(TAG_HTTP, "Humidity: %.0f%%", cJSON_GetObjectItem(hum, "value")->valuedouble);
+            const cJSON *value = cJSON_GetObjectItem(hum, "value");
+            if (value && cJSON_IsNumber(value)) {
+                device->device_data.ac.humidity = (float)value->valuedouble;
+                ESP_LOGI(TAG_HTTP, "Humidity: %.0f%%", device->device_data.ac.humidity);
+            }
         }
         cJSON_Delete(json);
     }
@@ -433,8 +449,32 @@ void smartthings_ac_status(const smartthings_device_t *device)
     if (smartthings_api_get_device_capability_status(device->device_id, "thermostatCoolingSetpoint", &json)) {
         const cJSON *set = cJSON_GetObjectItem(json, "coolingSetpoint");
         if (set) {
-            ESP_LOGI(TAG_HTTP, "Cooling setpoint: %.1f°C", cJSON_GetObjectItem(set, "value")->valuedouble);
+            const cJSON *value = cJSON_GetObjectItem(set, "value");
+            if (value && cJSON_IsNumber(value)) {
+                device->device_data.ac.cooling_setpoint = (float)value->valuedouble;
+                ESP_LOGI(TAG_HTTP, "Cooling setpoint: %.1f°C", device->device_data.ac.cooling_setpoint);
+            }
         }
         cJSON_Delete(json);
+    }
+}
+
+void smartthings_api_populate_device_status(smartthings_device_t *device)
+{
+    if (!device) return;
+
+    switch (device->device_type)
+    {
+        case DEVICE_TYPE_TV:
+            smartthings_api_get_tv_status(device);
+            break;
+
+        case DEVICE_TYPE_AC:
+            smartthings_api_get_ac_status(device);
+            break;
+
+        default:
+            ESP_LOGW(TAG_HTTP, "No status handler for device type: %d", device->device_type);
+            break;
     }
 }

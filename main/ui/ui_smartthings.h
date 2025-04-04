@@ -42,7 +42,7 @@ typedef struct {
     lv_obj_t *img_btn_on;
     lv_obj_t *lottie;
     lv_obj_t *label_device_status;
-    smartthings_device_type_t type;
+    const smartthings_device_t *device;
 } device_ui_t;
 
 typedef struct {

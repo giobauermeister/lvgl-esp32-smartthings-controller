@@ -174,19 +174,22 @@ void update_device_ui(int index)
     if (d->is_on) {
         lv_image_set_src(on_off_switch, &img_btn_on_state);
         lv_obj_set_style_bg_opa(d->container, LV_OPA_COVER, LV_PART_MAIN);
-
-
-        lv_label_set_text(d->label_device_status, "Current 25°C");
         lv_obj_add_flag(d->img_device_off, LV_OBJ_FLAG_HIDDEN);
 
         // If AC, just show its existing lottie
-        if(d->type == DEVICE_TYPE_AC) {
+        if (d->device->device_type == DEVICE_TYPE_AC) {
+            lv_label_set_text_fmt(d->label_device_status, "Current %d°C", (int)d->device->device_data.ac.temperature);
             lv_obj_clear_flag(d->lottie, LV_OBJ_FLAG_HIDDEN);
         }
         // If TV, we assume `on_button_held()` already created the Lottie if needed
         // so we just show it if it exists
-        else if(d->type == DEVICE_TYPE_TV) {
-            lv_obj_clear_flag(d->img_device_on, LV_OBJ_FLAG_HIDDEN);
+        else if(d->device->device_type == DEVICE_TYPE_TV) {
+            lv_label_set_text(d->label_device_status, d->device->device_data.tv.tv_channel);
+            if (d->img_device_on) {
+                lv_obj_clear_flag(d->img_device_on, LV_OBJ_FLAG_HIDDEN);
+            }
+        } else {
+            lv_label_set_text(d->label_device_status, "On");
         }
     }
     // If device is OFF
@@ -255,13 +258,13 @@ void on_button_held(void)
     if(animation_in_progress) return;
 
     device_ui_t *d = &devices[current_device_index];
-    const device_asset_t *assets = &DEVICE_ASSETS[d->type];
+    const device_asset_t *assets = &DEVICE_ASSETS[d->device->device_type];
 
     bool was_on = d->is_on;
     d->is_on = !d->is_on;
 
     // TV: OFF → ON (play turn-on)
-    if (d->type == DEVICE_TYPE_TV && !was_on && d->is_on) {
+    if (d->device->device_type == DEVICE_TYPE_TV && !was_on && d->is_on) {
         if (d->lottie) {
             lv_obj_del(d->lottie);
             d->lottie = NULL;
@@ -274,7 +277,7 @@ void on_button_held(void)
     }
 
     // TV: ON → OFF (play turn-off)
-    else if (d->type == DEVICE_TYPE_TV && was_on && !d->is_on) {
+    else if (d->device->device_type == DEVICE_TYPE_TV && was_on && !d->is_on) {
         if (d->lottie) {
             lv_obj_del(d->lottie);
             d->lottie = NULL;
@@ -373,7 +376,7 @@ void ui_create(void)
         const device_asset_t *assets = &DEVICE_ASSETS[dev->device_type];
 
         // Initialize fields of struct device_ui_t absed on API data
-        devices[i].type = dev->device_type;
+        devices[i].device = dev;
         devices[i].is_on = dev->is_on;
         devices[i].container = NULL;
         devices[i].img_device_on = NULL;
@@ -425,7 +428,21 @@ void ui_create(void)
 
         // Device status
         devices[i].label_device_status = lv_label_create(devices[i].container);
-        lv_label_set_text(devices[i].label_device_status, dev->is_on ? "On": "Off");
+        if (!dev->is_on) {
+            lv_label_set_text(devices[i].label_device_status, "Off");
+        } else {
+            switch (dev->device_type) {
+                case DEVICE_TYPE_TV:
+                    lv_label_set_text_fmt(devices[i].label_device_status, "%s", dev->device_data.tv.tv_channel);
+                    break;
+                case DEVICE_TYPE_AC:
+                    lv_label_set_text_fmt(devices[i].label_device_status, "Current %d°C", (int)dev->device_data.ac.temperature);
+                    break;
+                default:
+                    lv_label_set_text(devices[i].label_device_status, "On");
+                    break;
+            }
+        }
         lv_obj_set_style_text_font(devices[i].label_device_status, &lv_font_montserrat_semibold_16, LV_PART_MAIN);
         lv_obj_set_style_text_color(devices[i].label_device_status, UI_COLOR_DEVICE_STATUS, LV_PART_MAIN);
         lv_obj_align(devices[i].label_device_status, LV_ALIGN_TOP_LEFT, 31 - DEVICE_CONTAINER_OFFSET_X, 126 - DEVICE_CONTAINER_OFFSET_Y);
