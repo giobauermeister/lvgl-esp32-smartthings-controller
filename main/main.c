@@ -29,6 +29,14 @@ void app_main(void)
 
     smartthings_api_GET_devices();
 
+    const smartthings_device_t *list = smartthings_get_devices();
+    int count = smartthings_get_device_count();
+
+    for (int i = 0; i < count; i++) {
+        smartthings_api_GET_device_status(&list[i]);
+        vTaskDelay(pdMS_TO_TICKS(200)); // small delay to avoid flooding
+    }
+
     lvgl_init();
     ui_create();
     create_lvgl_task();
