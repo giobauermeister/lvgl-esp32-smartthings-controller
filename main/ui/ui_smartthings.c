@@ -11,6 +11,8 @@
 #include "ui/assets/animations/anim_tv_turn_off_json.h"
 #include "ui/assets/animations/anim_loading_json.h"
 #include "api/api_smartthings.h"
+#include "freertos/FreeRTOS.h"
+#include "esp_log.h"
 
 #define MAX_UI_DEVICES 10
 #define MAX_DEVICES 5
@@ -253,47 +255,96 @@ void on_button_pressed(void)
     animate_slide(next_container, 320, 17, on_animation_complete, &anim_data); // Slide new in
 }
 
-void on_button_held(void)
+static void update_device_ui_async_cb(void *param)
 {
-    if(animation_in_progress) return;
+    update_ui_args_t *args = (update_ui_args_t *)param;
+    int index = args->index;
+    bool was_on = args->was_on;
+    bool is_now_on = args->new_state;
+    free(args);
 
-    device_ui_t *d = &devices[current_device_index];
+    device_ui_t *d = &devices[index];
     const device_asset_t *assets = &DEVICE_ASSETS[d->device->device_type];
 
-    bool was_on = d->is_on;
-    d->is_on = !d->is_on;
+    // Only proceed if this device is active
+    if (index != current_device_index) return;
 
-    // TV: OFF → ON (play turn-on)
-    if (d->device->device_type == DEVICE_TYPE_TV && !was_on && d->is_on) {
+    // TV: OFF → ON
+    if (d->device->device_type == DEVICE_TYPE_TV && !was_on && is_now_on) {
         if (d->lottie) {
             lv_obj_del(d->lottie);
             d->lottie = NULL;
         }
-        if (d->img_device_on) {
-            lv_obj_add_flag(d->img_device_on, LV_OBJ_FLAG_HIDDEN);
-        }
+        if (d->img_device_on) lv_obj_add_flag(d->img_device_on, LV_OBJ_FLAG_HIDDEN);
         lottie_create_tv_turn_on(d, assets);
-        update_device_ui(current_device_index);
+        update_device_ui(index);
     }
-
-    // TV: ON → OFF (play turn-off)
-    else if (d->device->device_type == DEVICE_TYPE_TV && was_on && !d->is_on) {
+    // TV: ON → OFF
+    else if (d->device->device_type == DEVICE_TYPE_TV && was_on && !is_now_on) {
         if (d->lottie) {
             lv_obj_del(d->lottie);
             d->lottie = NULL;
         }
-        if (d->img_device_on) {
-            lv_obj_add_flag(d->img_device_on, LV_OBJ_FLAG_HIDDEN);  // Hide static ON
-        }
-        if (d->img_device_off) {
-            lv_obj_add_flag(d->img_device_off, LV_OBJ_FLAG_HIDDEN); // Hide OFF until anim ends
-        }
+        if (d->img_device_on) lv_obj_add_flag(d->img_device_on, LV_OBJ_FLAG_HIDDEN);
+        if (d->img_device_off) lv_obj_add_flag(d->img_device_off, LV_OBJ_FLAG_HIDDEN);
         animation_in_progress = true;
         lottie_create_tv_turn_off(d, assets);
     }
+    // AC and fallback logic
     else {
-        update_device_ui(current_device_index);
+        update_device_ui(index);  // generic update
     }
+
+    animation_in_progress = false;
+}
+
+static void device_toggle_task(void *param)
+{
+    device_toggle_args_t *args = (device_toggle_args_t *)param;
+    device_ui_t *d = args->device_ui;
+    const smartthings_device_t *dev = d->device;
+
+    bool was_on = d->is_on;
+    const bool new_state = args->turn_on;
+    const char *command = new_state ? "on" : "off";
+
+    bool success = smartthings_api_POST_device_status(dev, command);
+    if (success) {
+        d->is_on = new_state;
+
+        update_ui_args_t *ui_args = malloc(sizeof(update_ui_args_t));
+        if (ui_args) {
+            ui_args->index = d - devices;
+            ui_args->was_on = was_on;
+            ui_args->new_state = new_state;
+            lv_async_call(update_device_ui_async_cb, ui_args);
+        }
+    } else {
+        ESP_LOGW("LVGL", "Failed to toggle device '%s'", dev->label);
+    }
+
+    free(args);
+    vTaskDelete(NULL);
+}
+
+void on_button_hold(void)
+{
+    if (animation_in_progress) return;
+
+    device_ui_t *d = &devices[current_device_index];
+    animation_in_progress = true;
+
+    device_toggle_args_t *args = malloc(sizeof(device_toggle_args_t));
+    if (!args) {
+        ESP_LOGE("UI", "Failed to allocate memory for toggle args");
+        animation_in_progress = false;
+        return;
+    }
+
+    args->device_ui = d;
+    args->turn_on = !d->is_on;
+
+    xTaskCreate(device_toggle_task, "device_toggle_task", 4096, args, 5, NULL);
 }
 
 void ui_switch_to_main_screen(void)

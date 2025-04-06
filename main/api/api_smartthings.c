@@ -69,8 +69,7 @@ void smartthings_init_task(void *param)
     int count = smartthings_get_device_count();
 
     for (int i = 0; i < count; i++) {
-        smartthings_api_GET_device_status(&list[i]); // Check if device is ON or OFF
-        smartthings_api_populate_device_status(&list[i]); // Get TV Channel or AC Metrics depending on device type
+        smartthings_api_GET_device_full_status(&list[i]); // Check if device is ON or OFF and get its metrics
         vTaskDelay(pdMS_TO_TICKS(200));
     }
 
@@ -218,7 +217,136 @@ void smartthings_api_GET_devices(void)
     esp_http_client_cleanup(client);
 }
 
-void smartthings_api_GET_device_status(smartthings_device_t *device)
+void smartthings_api_GET_device_full_status(smartthings_device_t *device)
+{
+    if (!device) return;
+
+    char api_url[256];
+    snprintf(api_url, sizeof(api_url),
+             "%s/devices/%s/status",
+             API_BASE_URL, device->device_id);
+
+    http_response_ctx_t ctx = {
+        .buffer_size = 12 * 1024,
+        .buffer = malloc(12 * 1024),
+        .received_len = 0,
+    };
+
+    if (!ctx.buffer) {
+        ESP_LOGE(TAG_HTTP, "Failed to allocate response buffer");
+        return;
+    }
+
+    esp_http_client_config_t config = {
+        .url = api_url,
+        .event_handler = _http_event_handler,
+        .cert_pem = smartthings_root_cert_pem_start,
+        .user_data = &ctx,
+    };
+
+    esp_http_client_handle_t client = esp_http_client_init(&config);
+    smartthings_set_common_headers(client);
+
+    ESP_LOGI(TAG_HTTP, "Fetching full status for '%s'...", device->label);
+
+    esp_err_t err = esp_http_client_perform(client);
+    if (err == ESP_OK && ctx.received_len > 0) {
+        int status = esp_http_client_get_status_code(client);
+        if (status == 200) {
+            cJSON *root = cJSON_Parse(ctx.buffer);
+            if (root) {
+                cJSON *main = cJSON_GetObjectItem(root, "components");
+                if (main) main = cJSON_GetObjectItem(main, "main");
+
+                if (main) {
+                    // Switch status
+                    cJSON *sw = cJSON_GetObjectItem(main, "switch");
+                    if (sw) {
+                        cJSON *sw_state = cJSON_GetObjectItem(sw, "switch");
+                        if (sw_state && cJSON_IsObject(sw_state)) {
+                            const cJSON *val = cJSON_GetObjectItem(sw_state, "value");
+                            if (val && cJSON_IsString(val)) {
+                                device->is_on = (strcmp(val->valuestring, "on") == 0);
+                            }
+                        }
+                    }
+
+                    switch (device->device_type) {
+                        case DEVICE_TYPE_TV: {
+                            cJSON *tv = cJSON_GetObjectItem(main, "tvChannel");
+                            if (tv) {
+                                cJSON *name = cJSON_GetObjectItem(tv, "tvChannelName");
+                                if (name && cJSON_IsObject(name)) {
+                                    const cJSON *val = cJSON_GetObjectItem(name, "value");
+                                    if (val && cJSON_IsString(val)) {
+                                        const char *friendly = map_channel_name(val->valuestring);
+                                        strncpy(device->device_data.tv.tv_channel, friendly,
+                                                sizeof(device->device_data.tv.tv_channel));
+                                        device->device_data.tv.tv_channel[sizeof(device->device_data.tv.tv_channel) - 1] = '\0';
+                                    }
+                                }
+                            }
+                            break;
+                        }
+
+                        case DEVICE_TYPE_AC: {
+                            // Temperature
+                            cJSON *tempMeas = cJSON_GetObjectItem(main, "temperatureMeasurement");
+                            if (tempMeas) {
+                                const cJSON *temp = cJSON_GetObjectItem(tempMeas, "temperature");
+                                if (temp && cJSON_IsObject(temp)) {
+                                    const cJSON *val = cJSON_GetObjectItem(temp, "value");
+                                    if (val && cJSON_IsNumber(val)) {
+                                        device->device_data.ac.temperature = (float)val->valuedouble;
+                                    }
+                                }
+                            }
+
+                            // Humidity
+                            cJSON *humMeas = cJSON_GetObjectItem(main, "relativeHumidityMeasurement");
+                            if (humMeas) {
+                                const cJSON *hum = cJSON_GetObjectItem(humMeas, "humidity");
+                                if (hum && cJSON_IsObject(hum)) {
+                                    const cJSON *val = cJSON_GetObjectItem(hum, "value");
+                                    if (val && cJSON_IsNumber(val)) {
+                                        device->device_data.ac.humidity = (float)val->valuedouble;
+                                    }
+                                }
+                            }
+
+                            // Cooling Setpoint
+                            cJSON *cool = cJSON_GetObjectItem(main, "thermostatCoolingSetpoint");
+                            if (cool) {
+                                const cJSON *set = cJSON_GetObjectItem(cool, "coolingSetpoint");
+                                if (set && cJSON_IsObject(set)) {
+                                    const cJSON *val = cJSON_GetObjectItem(set, "value");
+                                    if (val && cJSON_IsNumber(val)) {
+                                        device->device_data.ac.cooling_setpoint = (float)val->valuedouble;
+                                    }
+                                }
+                            }
+
+                            break;
+                        }
+
+                        default:
+                            ESP_LOGW(TAG_HTTP, "Unknown device type: %d", device->device_type);
+                    }
+                }
+                cJSON_Delete(root);
+            }
+        } else {
+            ESP_LOGE(TAG_HTTP, "GET /status failed. Status code: %d", status);
+        }
+    } else {
+        ESP_LOGE(TAG_HTTP, "HTTP GET request failed: %s", esp_err_to_name(err));
+    }
+
+    esp_http_client_cleanup(client);
+    free(ctx.buffer);
+}
+
+void smartthings_api_GET_device_switch_status(smartthings_device_t *device)
 {
     if (!device) {
         ESP_LOGE(TAG_HTTP, "Device pointer is NULL");
@@ -286,11 +414,13 @@ void smartthings_api_GET_device_status(smartthings_device_t *device)
     free(ctx.buffer);
 }
 
-void smartthings_api_POST_device_status(const smartthings_device_t *device, const char *command)
+bool smartthings_api_POST_device_status(const smartthings_device_t *device, const char *command)
 {
+    bool success = false;
+
     if (!device) {
         ESP_LOGE(TAG_HTTP, "Device pointer is NULL");
-        return;
+        return false;
     }
 
     char api_url[256];
@@ -304,7 +434,7 @@ void smartthings_api_POST_device_status(const smartthings_device_t *device, cons
 
     if (!ctx.buffer) {
         ESP_LOGE(TAG_HTTP, "Failed to allocate response buffer");
-        return;
+        return false;
     }
 
     esp_http_client_config_t config = {
@@ -329,23 +459,22 @@ void smartthings_api_POST_device_status(const smartthings_device_t *device, cons
     // Set POST body
     esp_http_client_set_post_field(client, post_data, strlen(post_data));
 
-    ESP_LOGI(TAG_HTTP, "Sending command '%s' to device '%s'...", command, device->label);
+    ESP_LOGI(TAG_HTTP, "Sending '%s' to device '%s'...", command, device->label);
 
     esp_err_t err = esp_http_client_perform(client);
     if (err == ESP_OK) {
         int status = esp_http_client_get_status_code(client);
         ESP_LOGI(TAG_HTTP, "POST returned status = %d", status);
-        if (status >= 200 && status < 300) {
-            ESP_LOGI(TAG_HTTP, "Command sent successfully");
-        } else {
-            ESP_LOGE(TAG_HTTP, "SmartThings API returned error status = %d", status);
-        }
+        success = (status >= 200 && status < 300);
+        ESP_LOGI(TAG_HTTP, "Command sent successfully");
     } else {
         ESP_LOGE(TAG_HTTP, "HTTP POST request failed: %s", esp_err_to_name(err));
     }
 
     esp_http_client_cleanup(client);
     free(ctx.buffer);
+
+    return success;
 }
 
 bool smartthings_api_get_device_capability_status(const char *device_id, const char *capability, cJSON **json_out)

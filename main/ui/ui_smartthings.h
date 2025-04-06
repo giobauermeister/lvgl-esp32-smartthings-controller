@@ -56,6 +56,17 @@ typedef struct {
     uint16_t lottie_height;
 } device_asset_t;
 
+typedef struct {
+    device_ui_t *device_ui;
+    bool turn_on;
+} device_toggle_args_t;
+
+typedef struct {
+    int index;
+    bool was_on;
+    bool new_state;
+} update_ui_args_t;
+
 void ui_create(void);
 void ui_create_loading_sceen(void);
 void ui_switch_to_main_screen(void);
@@ -63,6 +74,6 @@ void ui_set_devices(const smartthings_device_t *devices, int count);
 void update_device_ui(int index);
 void ui_set_styles(void);
 void on_button_pressed(void);
-void on_button_held(void);
+void on_button_hold(void);
 
 #endif // _UI_SMARTTHINGS_H_

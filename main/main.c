@@ -33,7 +33,7 @@ void app_main(void)
     xTaskCreatePinnedToCore(smartthings_init_task, "SmartThings Init", 8192, NULL, 5, NULL, 1);
 
     button_set_callback(on_button_pressed);
-    button_set_longpress_callback(on_button_held);
+    button_set_longpress_callback(on_button_hold);
     button_init();
 
     while (1) {
