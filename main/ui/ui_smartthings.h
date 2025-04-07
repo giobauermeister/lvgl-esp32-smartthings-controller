@@ -15,16 +15,23 @@ LV_IMAGE_DECLARE(img_tv_on);
 LV_IMAGE_DECLARE(img_tv_off);
 LV_IMAGE_DECLARE(img_btn_on_state);
 LV_IMAGE_DECLARE(img_btn_off_state);
+LV_IMAGE_DECLARE(img_termometer);
+LV_IMAGE_DECLARE(img_droplet);
 
 LV_FONT_DECLARE(lv_font_montserrat_bold_24);
+LV_FONT_DECLARE(lv_font_montserrat_bold_28);
 LV_FONT_DECLARE(lv_font_montserrat_bold_34);
 LV_FONT_DECLARE(lv_font_montserrat_semibold_16);
+LV_FONT_DECLARE(lv_font_montserrat_semibold_20);
 
 #define UI_COLOR_BG_DEVICE_CONTAINER        lv_color_hex(0xF6F6F6)
 #define UI_COLOR_DEVICE_NAME                lv_color_hex(0x313131)
 #define UI_COLOR_DEVICE_STATUS              lv_color_hex(0x8A8A8A)
 #define UI_COLOR_DEVICE_INDICATOR_SELECTED  lv_color_hex(0xF6F6F6)
 #define UI_COLOR_DEVICE_INDICATOR           lv_color_hex(0x797979)
+#define UI_COLOR_TEMP_HUM_LABEL             lv_color_hex(0xA5B3CE)
+#define UI_COLOR_TEMP_HUM_VALUE             lv_color_hex(0xF2F2F2)
+#define UI_COLOR_TEMP_HUM_CONTAINER         lv_color_hex(0x254A76)
 
 #define DEVICE_CONTAINER_OFFSET_X  17
 #define DEVICE_CONTAINER_OFFSET_Y  42

@@ -19,12 +19,16 @@ set(UI_ASSETS
     "ui/assets/images/img_tv_off.c"
     "ui/assets/images/img_btn_on_state.c"
     "ui/assets/images/img_btn_off_state.c"
+    "ui/assets/images/img_termometer.c"
+    "ui/assets/images/img_droplet.c"
 )
 
 set(UI_FONTS
     "ui/assets/fonts/lv_font_montserrat_bold_24.c"
+    "ui/assets/fonts/lv_font_montserrat_bold_28.c"
     "ui/assets/fonts/lv_font_montserrat_bold_34.c"
     "ui/assets/fonts/lv_font_montserrat_semibold_16.c"
+    "ui/assets/fonts/lv_font_montserrat_semibold_20.c"
 )
 
 set(REQ_COMPONENTS
