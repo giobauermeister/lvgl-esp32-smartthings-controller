@@ -351,7 +351,7 @@ void on_button_hold(void)
         lv_obj_clear_flag(lottie_btn_loading, LV_OBJ_FLAG_HIDDEN);
 
         // Simply re-assign the animation source to restart
-        lv_lottie_set_src_data(lottie_btn_loading, anim_btn_turn_on_state_json, anim_btn_turn_on_state_json_size);
+        lv_lottie_set_src_data(lottie_btn_loading, anim_btn_loading_json, anim_btn_loading_json_size);
     }
 
     device_toggle_args_t *args = malloc(sizeof(device_toggle_args_t));
