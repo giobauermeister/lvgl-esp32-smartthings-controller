@@ -170,6 +170,10 @@ void update_device_ui(int index)
 
     if (!IS_REAL_DEVICE(index)) {
         // For temp/humidity containers, just show them — no buttons, no lottie animation.
+        if (lottie_btn_loading) {
+            lv_obj_add_flag(lottie_btn_loading, LV_OBJ_FLAG_HIDDEN);
+        }
+
         for (int i = 0; i < ui_device_count; i++) {
             lv_obj_set_x(devices[i].container, (i == index) ? 17 : -320);
             lv_color_t color = (i == index) ? UI_COLOR_DEVICE_INDICATOR_SELECTED : UI_COLOR_DEVICE_INDICATOR;
@@ -194,6 +198,10 @@ void update_device_ui(int index)
     }
 
     lv_obj_set_parent(on_off_switch, d->container);
+
+    if (IS_REAL_DEVICE(index) && lottie_btn_loading) {
+        lv_obj_set_parent(lottie_btn_loading, d->container);
+    }
 
     // If device is ON
     if (d->is_on) {
