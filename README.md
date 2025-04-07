@@ -19,7 +19,7 @@ Create .env file with WiFi SSID and password, and Samsung SmartThings API token
 ```
 WIFI_SSID="YourSSID"
 WIFI_PASSWORD="YourPass"
-MQTT_BROKER="12345-your-token-here-6789"
+SMARTTHINGS_API_TOKEN="12345-your-token-here-6789"
 ```
 
 Generate certificates for smartthings api

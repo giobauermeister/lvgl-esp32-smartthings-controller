@@ -5,12 +5,11 @@
 #include <stdio.h>
 #include <string.h>
 #include "widgets/lottie/lv_lottie.h"
-#include "ui/assets/animations/anim_tv_on_json.h"
 #include "ui/assets/animations/anim_ac_on_json.h"
 #include "ui/assets/animations/anim_tv_turn_on_json.h"
 #include "ui/assets/animations/anim_tv_turn_off_json.h"
 #include "ui/assets/animations/anim_loading_json.h"
-#include "ui/assets/animations/anim_btn_turn_on_state_json.h"
+#include "ui/assets/animations/anim_btn_loading_json.h"
 #include "api/api_smartthings.h"
 #include "freertos/FreeRTOS.h"
 #include "esp_log.h"
@@ -420,6 +419,8 @@ void ui_set_styles(void)
 
 void ui_create(void)
 {
+    ui_device_count = api_device_count;
+
     ui_set_styles();
 
     lv_obj_t *app_container = lv_obj_create(lv_screen_active());
@@ -441,13 +442,21 @@ void ui_create(void)
     lv_obj_set_style_text_color(label_smartthings, lv_color_white(), LV_PART_MAIN);
     lv_obj_align(label_smartthings, LV_ALIGN_TOP_LEFT, 50, 8);
 
-    ui_device_count = api_device_count;
-    for(int i = 0; i < api_device_count; i++)
+    lv_obj_t *indicator_container = lv_obj_create(app_container);
+    lv_obj_set_size(indicator_container, ui_device_count * 12, 8);
+    lv_obj_align(indicator_container, LV_ALIGN_BOTTOM_MID, 0, -5);
+    lv_obj_set_layout(indicator_container, LV_LAYOUT_FLEX);
+    lv_obj_set_flex_flow(indicator_container, LV_FLEX_FLOW_ROW);
+    lv_obj_set_scroll_dir(indicator_container, LV_DIR_NONE);
+    lv_obj_set_scrollbar_mode(indicator_container, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_add_style(indicator_container, &style_indicator_container, 0);
+
+    for(int i = 0; i < ui_device_count; i++)
     {
         const smartthings_device_t *dev = &ui_devices[i];
         const device_asset_t *assets = &DEVICE_ASSETS[dev->device_type];
 
-        // Initialize fields of struct device_ui_t absed on API data
+        // Initialize fields of struct device_ui_t based on API data
         devices[i].device = dev;
         devices[i].is_on = dev->is_on;
         devices[i].container = NULL;
@@ -493,7 +502,7 @@ void ui_create(void)
             lottie_btn_loading = lv_lottie_create(devices[i].container);
             lv_obj_set_size(lottie_btn_loading, LOTTIE_BTN_ON_WIDTH, LOTTIE_BTN_ON_HEIGHT);
             lv_lottie_set_buffer(lottie_btn_loading, LOTTIE_BTN_ON_WIDTH, LOTTIE_BTN_ON_HEIGHT, lottie_btn_on_buf);
-            lv_lottie_set_src_data(lottie_btn_loading, anim_btn_turn_on_state_json, anim_btn_turn_on_state_json_size);
+            lv_lottie_set_src_data(lottie_btn_loading, anim_btn_loading_json, anim_btn_loading_json_size);
             lv_obj_align(lottie_btn_loading, LV_ALIGN_TOP_LEFT, 240 - DEVICE_CONTAINER_OFFSET_X, 49 - DEVICE_CONTAINER_OFFSET_Y);
             lv_obj_add_flag(lottie_btn_loading, LV_OBJ_FLAG_HIDDEN); // começa escondido
         }
@@ -525,18 +534,7 @@ void ui_create(void)
         lv_obj_set_style_text_font(devices[i].label_device_status, &lv_font_montserrat_semibold_16, LV_PART_MAIN);
         lv_obj_set_style_text_color(devices[i].label_device_status, UI_COLOR_DEVICE_STATUS, LV_PART_MAIN);
         lv_obj_align(devices[i].label_device_status, LV_ALIGN_TOP_LEFT, 31 - DEVICE_CONTAINER_OFFSET_X, 126 - DEVICE_CONTAINER_OFFSET_Y);
-    }
 
-    lv_obj_t *indicator_container = lv_obj_create(app_container);
-    lv_obj_set_size(indicator_container, ui_device_count * 12, 8);
-    lv_obj_align(indicator_container, LV_ALIGN_BOTTOM_MID, 0, -5);
-    lv_obj_set_layout(indicator_container, LV_LAYOUT_FLEX);
-    lv_obj_set_flex_flow(indicator_container, LV_FLEX_FLOW_ROW);
-    lv_obj_set_scroll_dir(indicator_container, LV_DIR_NONE);
-    lv_obj_set_scrollbar_mode(indicator_container, LV_SCROLLBAR_MODE_OFF);
-    lv_obj_add_style(indicator_container, &style_indicator_container, 0);
-
-    for (int i = 0; i < ui_device_count; i++) {
         device_indicators[i] = lv_obj_create(indicator_container);
         lv_obj_set_size(device_indicators[i], 8, 8);
         lv_obj_add_style(device_indicators[i], &style_device_indicator, 0);
