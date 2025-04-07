@@ -10,6 +10,7 @@
 #include "ui/assets/animations/anim_tv_turn_on_json.h"
 #include "ui/assets/animations/anim_tv_turn_off_json.h"
 #include "ui/assets/animations/anim_loading_json.h"
+#include "ui/assets/animations/anim_btn_turn_on_state_json.h"
 #include "api/api_smartthings.h"
 #include "freertos/FreeRTOS.h"
 #include "esp_log.h"
@@ -22,18 +23,23 @@
 #define LOTTIE_TV_ON_HEIGHT 38
 #define LOTTIE_LOADING_WIDTH  86
 #define LOTTIE_LOADING_HEIGTH 86
+#define LOTTIE_BTN_ON_WIDTH  54
+#define LOTTIE_BTN_ON_HEIGHT 54
 #define LOTTIE_MAX_WIDTH  LOTTIE_AC_ON_WIDTH
 #define LOTTIE_MAX_HEIGHT LOTTIE_AC_ON_HEIGHT
 #define SLIDE_SPEED 300
 
 static uint8_t lottie_buf[LOTTIE_MAX_WIDTH * LOTTIE_MAX_HEIGHT * 4]; // ARGB8888, 4 bytes per pixel
 static uint8_t lottie_loading_buf[LOTTIE_LOADING_WIDTH * LOTTIE_LOADING_HEIGTH * 4]; // ARGB8888, 4 bytes per pixel
+static uint8_t lottie_btn_on_buf[LOTTIE_BTN_ON_WIDTH * LOTTIE_BTN_ON_HEIGHT * 4]; // ARGB8888, 4 bytes per pixel
 
 static smartthings_device_t ui_devices[MAX_UI_DEVICES];
 static device_ui_t devices[MAX_UI_DEVICES];
 static int ui_device_count = 0;
 static int api_device_count = 0;
 static int current_device_index = 0;
+
+static lv_obj_t *lottie_btn_loading = NULL;
 
 static lv_obj_t *device_indicators[MAX_DEVICES];
 static lv_obj_t *on_off_switch = NULL;
@@ -269,6 +275,13 @@ static void update_device_ui_async_cb(void *param)
     // Only proceed if this device is active
     if (index != current_device_index) return;
 
+    if (lottie_btn_loading) {
+        lv_obj_add_flag(lottie_btn_loading, LV_OBJ_FLAG_HIDDEN);
+    }
+    if (on_off_switch) {
+        lv_obj_clear_flag(on_off_switch, LV_OBJ_FLAG_HIDDEN);
+    }
+
     // TV: OFF → ON
     if (d->device->device_type == DEVICE_TYPE_TV && !was_on && is_now_on) {
         if (d->lottie) {
@@ -333,6 +346,14 @@ void on_button_hold(void)
 
     device_ui_t *d = &devices[current_device_index];
     animation_in_progress = true;
+
+    if (lottie_btn_loading) {
+        lv_obj_set_parent(lottie_btn_loading, d->container);
+        lv_obj_clear_flag(lottie_btn_loading, LV_OBJ_FLAG_HIDDEN);
+
+        // Simply re-assign the animation source to restart
+        lv_lottie_set_src_data(lottie_btn_loading, anim_btn_turn_on_state_json, anim_btn_turn_on_state_json_size);
+    }
 
     device_toggle_args_t *args = malloc(sizeof(device_toggle_args_t));
     if (!args) {
@@ -468,6 +489,13 @@ void ui_create(void)
         if (i == 0) {
             on_off_switch = lv_image_create(devices[i].container);
             lv_obj_align(on_off_switch, LV_ALIGN_TOP_LEFT, 240 - DEVICE_CONTAINER_OFFSET_X, 49 - DEVICE_CONTAINER_OFFSET_Y);
+
+            lottie_btn_loading = lv_lottie_create(devices[i].container);
+            lv_obj_set_size(lottie_btn_loading, LOTTIE_BTN_ON_WIDTH, LOTTIE_BTN_ON_HEIGHT);
+            lv_lottie_set_buffer(lottie_btn_loading, LOTTIE_BTN_ON_WIDTH, LOTTIE_BTN_ON_HEIGHT, lottie_btn_on_buf);
+            lv_lottie_set_src_data(lottie_btn_loading, anim_btn_turn_on_state_json, anim_btn_turn_on_state_json_size);
+            lv_obj_align(lottie_btn_loading, LV_ALIGN_TOP_LEFT, 240 - DEVICE_CONTAINER_OFFSET_X, 49 - DEVICE_CONTAINER_OFFSET_Y);
+            lv_obj_add_flag(lottie_btn_loading, LV_OBJ_FLAG_HIDDEN); // começa escondido
         }
 
         // Device Name
