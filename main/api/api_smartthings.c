@@ -70,7 +70,6 @@ void smartthings_init_task(void *param)
 
     for (int i = 0; i < count; i++) {
         smartthings_api_GET_device_full_status(&list[i]); // Check if device is ON or OFF and get its metrics
-        vTaskDelay(pdMS_TO_TICKS(200));
     }
 
     ui_set_devices(list, count);
