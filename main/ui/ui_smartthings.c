@@ -28,6 +28,10 @@
 #define LOTTIE_MAX_HEIGHT LOTTIE_AC_ON_HEIGHT
 #define SLIDE_SPEED 300
 
+#define INDEX_TEMP_CONTAINER     (api_device_count)
+#define INDEX_HUM_CONTAINER      (api_device_count + 1)
+#define IS_REAL_DEVICE(index)    ((index) < api_device_count)
+
 static uint8_t lottie_buf[LOTTIE_MAX_WIDTH * LOTTIE_MAX_HEIGHT * 4]; // ARGB8888, 4 bytes per pixel
 static uint8_t lottie_loading_buf[LOTTIE_LOADING_WIDTH * LOTTIE_LOADING_HEIGTH * 4]; // ARGB8888, 4 bytes per pixel
 static uint8_t lottie_btn_on_buf[LOTTIE_BTN_ON_WIDTH * LOTTIE_BTN_ON_HEIGHT * 4]; // ARGB8888, 4 bytes per pixel
@@ -37,6 +41,7 @@ static device_ui_t devices[MAX_UI_DEVICES];
 static int ui_device_count = 0;
 static int api_device_count = 0;
 static int current_device_index = 0;
+const int extra_containers = 2;
 
 static lv_obj_t *lottie_btn_loading = NULL;
 
@@ -50,6 +55,7 @@ static bool styles_inited = false;
 static lv_style_t style_app_container;
 static lv_style_t style_app_background;
 static lv_style_t style_device_container;
+static lv_style_t style_temp_hum_container;
 static lv_style_t style_indicator_container;
 static lv_style_t style_device_indicator;
 
@@ -87,7 +93,6 @@ static void tv_lottie_anim_ready_cb(lv_anim_t *a)
         lv_obj_clear_flag(d->img_device_on, LV_OBJ_FLAG_HIDDEN);
     }
 
-    // Optional: remove ready_cb to avoid calling again
     lv_anim_set_ready_cb(a, NULL);
 }
 
@@ -163,11 +168,28 @@ void update_device_ui(int index)
 
     if (index < 0 || index >= ui_device_count) return;
 
+    if (!IS_REAL_DEVICE(index)) {
+        // For temp/humidity containers, just show them — no buttons, no lottie animation.
+        if (lottie_btn_loading) {
+            lv_obj_add_flag(lottie_btn_loading, LV_OBJ_FLAG_HIDDEN);
+        }
+
+        for (int i = 0; i < ui_device_count; i++) {
+            lv_obj_set_x(devices[i].container, (i == index) ? 17 : -320);
+            lv_color_t color = (i == index) ? UI_COLOR_DEVICE_INDICATOR_SELECTED : UI_COLOR_DEVICE_INDICATOR;
+            lv_obj_set_style_bg_color(device_indicators[i], color, LV_PART_MAIN);
+        }
+        return;
+    }
+
     for (int i = 0; i < ui_device_count; i++) {
         // Non-visible devices don't get animation, just show their current state
-        if (i != index) {
-            lv_obj_add_flag(devices[i].lottie, LV_OBJ_FLAG_HIDDEN);
-            lv_obj_clear_flag(devices[i].img_device_off, LV_OBJ_FLAG_HIDDEN);
+        if (i != index && IS_REAL_DEVICE(i)) {
+            if (devices[i].lottie)
+                lv_obj_add_flag(devices[i].lottie, LV_OBJ_FLAG_HIDDEN);
+    
+            if (devices[i].img_device_off)
+                lv_obj_clear_flag(devices[i].img_device_off, LV_OBJ_FLAG_HIDDEN);
         }
 
         // Update bottom devices indicator 
@@ -176,6 +198,10 @@ void update_device_ui(int index)
     }
 
     lv_obj_set_parent(on_off_switch, d->container);
+
+    if (IS_REAL_DEVICE(index) && lottie_btn_loading) {
+        lv_obj_set_parent(lottie_btn_loading, d->container);
+    }
 
     // If device is ON
     if (d->is_on) {
@@ -342,6 +368,7 @@ static void device_toggle_task(void *param)
 void on_button_hold(void)
 {
     if (animation_in_progress) return;
+    if (!IS_REAL_DEVICE(current_device_index)) return;
 
     device_ui_t *d = &devices[current_device_index];
     animation_in_progress = true;
@@ -373,6 +400,31 @@ void ui_switch_to_main_screen(void)
     ui_create(); // your existing UI creation function
 }
 
+bool get_average_ac_metrics(float *avg_temp, float *avg_humidity)
+{
+    if (!avg_temp || !avg_humidity) return false;
+
+    float temp_sum = 0.0f;
+    float humidity_sum = 0.0f;
+    int ac_count = 0;
+
+    for (int i = 0; i < ui_device_count; ++i) {
+        const smartthings_device_t *dev = &ui_devices[i];
+        if (dev->device_type == DEVICE_TYPE_AC) {
+            temp_sum += dev->device_data.ac.temperature;
+            humidity_sum += dev->device_data.ac.humidity;
+            ac_count++;
+        }
+    }
+
+    if (ac_count == 0) return false; // avoid division by zero
+
+    *avg_temp = temp_sum / ac_count;
+    *avg_humidity = humidity_sum / ac_count;
+
+    return true;
+}
+
 void ui_set_devices(const smartthings_device_t *smartthings_devices, int count)
 {
     api_device_count = (count > MAX_UI_DEVICES) ? MAX_UI_DEVICES : count;
@@ -402,6 +454,13 @@ void ui_set_styles(void)
         lv_style_set_bg_color(&style_device_container, UI_COLOR_BG_DEVICE_CONTAINER);
         lv_style_set_pad_all(&style_device_container, 0);
 
+        // Style temperature humidity container
+        lv_style_init(&style_temp_hum_container);
+        lv_style_set_border_width(&style_temp_hum_container, 0);
+        lv_style_set_radius(&style_temp_hum_container, 23);
+        lv_style_set_bg_color(&style_temp_hum_container, UI_COLOR_TEMP_HUM_CONTAINER);
+        lv_style_set_pad_all(&style_temp_hum_container, 0);
+
         // Style indicator container
         lv_style_init(&style_indicator_container);
         lv_style_set_border_width(&style_indicator_container, 0);
@@ -419,7 +478,7 @@ void ui_set_styles(void)
 
 void ui_create(void)
 {
-    ui_device_count = api_device_count;
+    ui_device_count = api_device_count + extra_containers;
 
     ui_set_styles();
 
@@ -451,7 +510,7 @@ void ui_create(void)
     lv_obj_set_scrollbar_mode(indicator_container, LV_SCROLLBAR_MODE_OFF);
     lv_obj_add_style(indicator_container, &style_indicator_container, 0);
 
-    for(int i = 0; i < ui_device_count; i++)
+    for(int i = 0; i < api_device_count; i++)
     {
         const smartthings_device_t *dev = &ui_devices[i];
         const device_asset_t *assets = &DEVICE_ASSETS[dev->device_type];
@@ -534,11 +593,79 @@ void ui_create(void)
         lv_obj_set_style_text_font(devices[i].label_device_status, &lv_font_montserrat_semibold_16, LV_PART_MAIN);
         lv_obj_set_style_text_color(devices[i].label_device_status, UI_COLOR_DEVICE_STATUS, LV_PART_MAIN);
         lv_obj_align(devices[i].label_device_status, LV_ALIGN_TOP_LEFT, 31 - DEVICE_CONTAINER_OFFSET_X, 126 - DEVICE_CONTAINER_OFFSET_Y);
+    }
 
+    float avg_temp = 0.0f, avg_humidity = 0.0f;
+    if (get_average_ac_metrics(&avg_temp, &avg_humidity)) {
+        ESP_LOGI("METRICS", "Average Temp: %.1f°C, Avg Humidity: %.1f%%", avg_temp, avg_humidity);
+    } else {
+        ESP_LOGW("METRICS", "No AC devices found!");
+    }
+
+    // Average temperature container
+    devices[INDEX_TEMP_CONTAINER].device = NULL;
+    devices[INDEX_TEMP_CONTAINER].container = lv_obj_create(app_container);
+    lv_obj_set_size(devices[INDEX_TEMP_CONTAINER].container, 286, 111);
+    lv_obj_align(devices[INDEX_TEMP_CONTAINER].container, LV_ALIGN_TOP_LEFT, 17, 42);
+    lv_obj_set_scroll_dir(devices[INDEX_TEMP_CONTAINER].container, LV_DIR_NONE);
+    lv_obj_set_scrollbar_mode(devices[INDEX_TEMP_CONTAINER].container, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_set_pos(devices[INDEX_TEMP_CONTAINER].container, 320, 42);
+    lv_obj_add_style(devices[INDEX_TEMP_CONTAINER].container, &style_temp_hum_container, 0);
+
+    // Temperature icon
+    lv_obj_t* temp_icon = lv_image_create(devices[INDEX_TEMP_CONTAINER].container);
+    lv_image_set_src(temp_icon, &img_termometer);
+    lv_obj_align(temp_icon, LV_ALIGN_TOP_LEFT, 54 - DEVICE_CONTAINER_OFFSET_X, 72 - DEVICE_CONTAINER_OFFSET_Y);
+
+    // Temperature label
+    lv_obj_t *label_temp = lv_label_create(devices[INDEX_TEMP_CONTAINER].container);
+    lv_label_set_text(label_temp, "Temperature");
+    lv_obj_set_style_text_font(label_temp, &lv_font_montserrat_semibold_20, LV_PART_MAIN);
+    lv_obj_set_style_text_color(label_temp, UI_COLOR_TEMP_HUM_LABEL, LV_PART_MAIN);
+    lv_obj_align(label_temp, LV_ALIGN_TOP_LEFT, 97 - DEVICE_CONTAINER_OFFSET_X, 72 - DEVICE_CONTAINER_OFFSET_Y);
+
+    // Temperature value
+    lv_obj_t *label_temp_value = lv_label_create(devices[INDEX_TEMP_CONTAINER].container);
+    lv_label_set_text_fmt(label_temp_value, "%.1f°C", avg_temp);
+    lv_obj_set_style_text_font(label_temp_value, &lv_font_montserrat_bold_28, LV_PART_MAIN);
+    lv_obj_set_style_text_color(label_temp_value, UI_COLOR_TEMP_HUM_VALUE, LV_PART_MAIN);
+    lv_obj_align(label_temp_value, LV_ALIGN_TOP_LEFT, 97 - DEVICE_CONTAINER_OFFSET_X, 98 - DEVICE_CONTAINER_OFFSET_Y);
+
+    // Average humidity container
+    devices[INDEX_HUM_CONTAINER].device = NULL;
+    devices[INDEX_HUM_CONTAINER].container = lv_obj_create(app_container);
+    lv_obj_set_size(devices[INDEX_HUM_CONTAINER].container, 286, 111);
+    lv_obj_align(devices[INDEX_HUM_CONTAINER].container, LV_ALIGN_TOP_LEFT, 17, 42);
+    lv_obj_set_scroll_dir(devices[INDEX_HUM_CONTAINER].container, LV_DIR_NONE);
+    lv_obj_set_scrollbar_mode(devices[INDEX_HUM_CONTAINER].container, LV_SCROLLBAR_MODE_OFF);
+    lv_obj_set_pos(devices[INDEX_HUM_CONTAINER].container, 320, 42);
+    lv_obj_add_style(devices[INDEX_HUM_CONTAINER].container, &style_temp_hum_container, 0);
+
+    // Humidity icon
+    lv_obj_t* hum_icon = lv_image_create(devices[INDEX_HUM_CONTAINER].container);
+    lv_image_set_src(hum_icon, &img_droplet);
+    lv_obj_align(hum_icon, LV_ALIGN_TOP_LEFT, 50 - DEVICE_CONTAINER_OFFSET_X, 75 - DEVICE_CONTAINER_OFFSET_Y);
+
+    // Humidity label
+    lv_obj_t *label_hum = lv_label_create(devices[INDEX_HUM_CONTAINER].container);
+    lv_label_set_text(label_hum, "Humidity");
+    lv_obj_set_style_text_font(label_hum, &lv_font_montserrat_semibold_20, LV_PART_MAIN);
+    lv_obj_set_style_text_color(label_hum, UI_COLOR_TEMP_HUM_LABEL, LV_PART_MAIN);
+    lv_obj_align(label_hum, LV_ALIGN_TOP_LEFT, 97 - DEVICE_CONTAINER_OFFSET_X, 72 - DEVICE_CONTAINER_OFFSET_Y);
+
+    // Humidity value
+    lv_obj_t *label_hum_value = lv_label_create(devices[INDEX_HUM_CONTAINER].container);
+    lv_label_set_text_fmt(label_hum_value, "%.1f%%", avg_humidity);
+    lv_obj_set_style_text_font(label_hum_value, &lv_font_montserrat_bold_28, LV_PART_MAIN);
+    lv_obj_set_style_text_color(label_hum_value, UI_COLOR_TEMP_HUM_VALUE, LV_PART_MAIN);
+    lv_obj_align(label_hum_value, LV_ALIGN_TOP_LEFT, 97 - DEVICE_CONTAINER_OFFSET_X, 98 - DEVICE_CONTAINER_OFFSET_Y);
+
+    for (int i = 0; i < ui_device_count; i++)
+    {
         device_indicators[i] = lv_obj_create(indicator_container);
         lv_obj_set_size(device_indicators[i], 8, 8);
         lv_obj_add_style(device_indicators[i], &style_device_indicator, 0);
-    }
+    }    
 
     update_device_ui(current_device_index);
 }
