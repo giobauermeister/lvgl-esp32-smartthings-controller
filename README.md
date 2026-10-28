@@ -44,6 +44,8 @@ updates the same subjects without requiring the ESP32 or network access.
 `api_smartthings` handles HTTP and device data; application startup and the
 connection to the UI live in `main/main.c` and `main/app/app_ui.c`.
 
+The UI can be previewed and tested online using LVGL Pro Online Viewer with this link: https://viewer.lvgl.io/?repo=https://github.com/giobauermeister/lvgl-esp32-smartthings-controller/tree/main/main/ui
+
 ## Requirements
 
 - ESP-IDF v6.0.2. The component manager fetches LVGL 9.5.0 (the version LVGL Pro
