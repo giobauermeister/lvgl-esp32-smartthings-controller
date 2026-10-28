@@ -2,7 +2,7 @@
 dependencies:
   ## Required IDF version
   idf:
-    version: ==5.4.1
+    version: ==6.0.2
   # # Put list of dependencies here
   # # For components maintained by Espressif:
   # component: "~1.0.0"
@@ -14,4 +14,6 @@ dependencies:
   #   # `public` flag doesn't have an effect dependencies of the `main` component.
   #   # All dependencies of `main` are public by default.
   #   public: true
-  lvgl/lvgl: ==9.2.2
+  lvgl/lvgl: ==9.5.0
+  # cJSON left ESP-IDF in v6.0 (the json component)
+  espressif/cjson: ==1.7.19~2

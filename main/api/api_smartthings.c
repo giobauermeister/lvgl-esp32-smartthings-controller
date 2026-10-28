@@ -1,14 +1,11 @@
 #include "api_smartthings.h"
+#include <stdlib.h>
+#include <string.h>
 #include "esp_log.h"
 #include "esp_err.h"
 #include "cJSON.h"
 #include "esp_http_client.h"
 #include "esp_crt_bundle.h"
-#include "ui/ui_smartthings.h"
-#include "wifi/wifi_init.h"
-#include "lvgl.h"
-
-#define MOCK_API_DEMO 0
 
 #define STR(x) #x
 #define XSTR(x) STR(x)
@@ -17,6 +14,7 @@
 #define MAX_HTTP_RECV_BUFFER 512
 #define MAX_HTTP_OUTPUT_BUFFER 2048
 #define MAX_DEVICES 10
+#define HTTP_MAX_RESPONSE_SIZE (64 * 1024) // an AC's /status is larger than the initial 12 kB
 
 static smartthings_device_t devices[MAX_DEVICES];
 static int device_count = 0;
@@ -61,34 +59,6 @@ static smartthings_device_type_t device_type_from_ocf(const char *ocf_type) {
     return DEVICE_TYPE_UNKNOWN;
 }
 
-void smartthings_init_task(void *param)
-{
-#if MOCK_API_DEMO
-    ESP_LOGI("MOCK", "Simulating Wi-Fi connection...");
-    vTaskDelay(pdMS_TO_TICKS(4000));  // Simulate 4s connection delay
-    ESP_LOGI("MOCK", "Connected (simulated)");
-#else
-    wifi_init_sta(); // blocking until connected
-#endif
-
-    smartthings_api_GET_devices();
-
-    smartthings_device_t *list = smartthings_get_devices();
-    int count = smartthings_get_device_count();
-
-    for (int i = 0; i < count; i++) {
-        smartthings_api_GET_device_full_status(&list[i]); // Check if device is ON or OFF and get its metrics
-    }
-
-    ui_set_devices(list, count);
-
-    // After fetching devices and status, switch to main UI
-    ESP_LOGI(TAG_HTTP, "Devices fetched, switching to main UI...");
-    lv_async_call((lv_async_cb_t)ui_switch_to_main_screen, NULL);
-
-    vTaskDelete(NULL); // cleanup this task
-}
-
 static esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 {
     http_response_ctx_t *ctx = (http_response_ctx_t *)evt->user_data;
@@ -106,16 +76,43 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt)
         case HTTP_EVENT_ON_HEADER:
             // ESP_LOGI(TAG_HTTP, "HEADER: %s = %s", evt->header_key, evt->header_value);
             break;
+        case HTTP_EVENT_ON_HEADERS_COMPLETE:
+            // ESP_LOGI(TAG_HTTP, "HTTP_EVENT_ON_HEADERS_COMPLETE");
+            break;
+        case HTTP_EVENT_ON_STATUS_CODE:
+            // ESP_LOGI(TAG_HTTP, "HTTP_EVENT_ON_STATUS_CODE");
+            break;
         case HTTP_EVENT_ON_DATA:
             // ESP_LOGI(TAG_HTTP, "HTTP_EVENT_ON_DATA: len = %d", evt->data_len);
 
-            if (!esp_http_client_is_chunked_response(evt->client) && ctx && ctx->buffer) {
+            // Chunked responses arrive here already decoded, so take both kinds
+            if (ctx && ctx->buffer) {
+                int needed = ctx->received_len + evt->data_len + 1;
+
+                if (needed > ctx->buffer_size && ctx->buffer_size < HTTP_MAX_RESPONSE_SIZE) {
+                    int new_size = ctx->buffer_size * 2;
+                    if (new_size < needed) new_size = needed;
+                    if (new_size > HTTP_MAX_RESPONSE_SIZE) new_size = HTTP_MAX_RESPONSE_SIZE;
+
+                    char *grown = realloc(ctx->buffer, new_size);
+                    if (grown) {
+                        ctx->buffer = grown;
+                        ctx->buffer_size = new_size;
+                    }
+                }
+
                 int remaining = ctx->buffer_size - ctx->received_len - 1;
                 int copy_len = (evt->data_len < remaining) ? evt->data_len : remaining;
 
                 if (copy_len > 0) {
                     memcpy(ctx->buffer + ctx->received_len, evt->data, copy_len);
                     ctx->received_len += copy_len;
+                }
+                ctx->buffer[ctx->received_len] = '\0'; // Null terminate
+
+                if (copy_len < evt->data_len && !ctx->truncated) {
+                    ctx->truncated = true;
+                    ESP_LOGW(TAG_HTTP, "Response larger than %d bytes, truncated", ctx->buffer_size - 1);
                 }
             }
             break;
@@ -138,38 +135,6 @@ static esp_err_t _http_event_handler(esp_http_client_event_t *evt)
 
 void smartthings_api_GET_devices(void)
 {
-
-#if MOCK_API_DEMO
-    ESP_LOGI("MOCK", "Simulating GET /devices...");
-
-    device_count = 3; // Simulate devices count
-
-    strncpy(devices[0].device_id, "mock-id-1", sizeof(devices[0].device_id));
-    strncpy(devices[0].label, "Living Room TV", sizeof(devices[0].label));
-    strncpy(devices[0].type, "Samsung TV", sizeof(devices[0].type));
-    devices[0].device_type = DEVICE_TYPE_TV;
-    devices[0].is_on = false;
-    strncpy(devices[0].device_data.tv.tv_channel, "Netflix", sizeof(devices[0].device_data.tv.tv_channel));
-
-    strncpy(devices[1].device_id, "mock-id-2", sizeof(devices[1].device_id));
-    strncpy(devices[1].label, "Bedroom AC", sizeof(devices[1].label));
-    strncpy(devices[1].type, "Split AC", sizeof(devices[1].type));
-    devices[1].device_type = DEVICE_TYPE_AC;
-    devices[1].is_on = true;
-    devices[1].device_data.ac.temperature = 25.0f;
-    devices[1].device_data.ac.humidity = 60.0f;
-    devices[1].device_data.ac.cooling_setpoint = 22.0f;
-
-    strncpy(devices[2].device_id, "mock-id-3", sizeof(devices[1].device_id));
-    strncpy(devices[2].label, "Office AC", sizeof(devices[1].label));
-    strncpy(devices[2].type, "Split AC", sizeof(devices[1].type));
-    devices[2].device_type = DEVICE_TYPE_AC;
-    devices[2].is_on = false;
-    devices[2].device_data.ac.temperature = 23.0f;
-    devices[2].device_data.ac.humidity = 70.0f;
-    devices[2].device_data.ac.cooling_setpoint = 22.0f;
-#else
-
     char api_url[256];
     snprintf(api_url, sizeof(api_url), "%s/devices", API_BASE_URL);
 
@@ -254,17 +219,10 @@ void smartthings_api_GET_devices(void)
 
     free(ctx.buffer);
     esp_http_client_cleanup(client);
-#endif
 }
 
 void smartthings_api_GET_device_full_status(smartthings_device_t *device)
 {
-
-#if MOCK_API_DEMO
-    ESP_LOGI("MOCK", "Skipping device full status for %s (mock)", device->label);
-    // Already initialized in smartthings_api_GET_devices()
-#else
-
     if (!device) return;
 
     char api_url[256];
@@ -298,8 +256,12 @@ void smartthings_api_GET_device_full_status(smartthings_device_t *device)
     esp_err_t err = esp_http_client_perform(client);
     if (err == ESP_OK && ctx.received_len > 0) {
         int status = esp_http_client_get_status_code(client);
+        ESP_LOGI(TAG_HTTP, "GET /status returned %d, %d bytes", status, ctx.received_len);
         if (status == 200) {
             cJSON *root = cJSON_Parse(ctx.buffer);
+            if (!root) {
+                ESP_LOGE(TAG_HTTP, "Failed to parse the status of '%s'", device->label);
+            }
             if (root) {
                 cJSON *main = cJSON_GetObjectItem(root, "components");
                 if (main) main = cJSON_GetObjectItem(main, "main");
@@ -390,7 +352,6 @@ void smartthings_api_GET_device_full_status(smartthings_device_t *device)
 
     esp_http_client_cleanup(client);
     free(ctx.buffer);
-#endif
 }
 
 void smartthings_api_GET_device_switch_status(smartthings_device_t *device)
@@ -463,14 +424,6 @@ void smartthings_api_GET_device_switch_status(smartthings_device_t *device)
 
 bool smartthings_api_POST_device_status(const smartthings_device_t *device, const char *command)
 {
-
-#if MOCK_API_DEMO
-    if (!device || !command) return false;
-    ESP_LOGI("MOCK", "Pretending to send '%s' to '%s'", command, device->label);
-    vTaskDelay(pdMS_TO_TICKS(3500));  // Simulate API delay
-    return true;
-#else
-
     bool success = false;
 
     if (!device) {
@@ -530,7 +483,6 @@ bool smartthings_api_POST_device_status(const smartthings_device_t *device, cons
     free(ctx.buffer);
 
     return success;
-#endif
 }
 
 bool smartthings_api_get_device_capability_status(const char *device_id, const char *capability, cJSON **json_out)

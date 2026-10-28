@@ -1,8 +1,6 @@
 #include "button.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
-#include "lvgl.h"
-#include "ui/ui_smartthings.h"
 #include "esp_timer.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
@@ -47,7 +45,7 @@ static void button_task(void *arg)
                     if ((now - press_start) / 1000 >= LONG_PRESS_TIME_MS)
                     {
                         if (button_longpress_callback)
-                            lv_async_call((lv_async_cb_t)button_longpress_callback, NULL);
+                            button_longpress_callback();
 
                         // Wait for release to avoid double-trigger
                         while (gpio_get_level(BUTTON_GPIO) == 0)
@@ -60,7 +58,7 @@ static void button_task(void *arg)
                 if (press_time / 1000 < LONG_PRESS_TIME_MS)
                 {
                     if (button_user_callback)
-                        lv_async_call((lv_async_cb_t)button_user_callback, NULL);
+                        button_user_callback();
                 }
             }
         }
@@ -79,7 +77,7 @@ void button_init(void)
     gpio_config(&io_conf);
 
     button_semaphore = xSemaphoreCreateBinary();
-    xTaskCreate(button_task, "button_task", 2048, NULL, 10, &button_task_handle);
+    xTaskCreate(button_task, "button_task", 4096, NULL, 10, &button_task_handle);
 
     gpio_install_isr_service(0);
     gpio_isr_handler_add(BUTTON_GPIO, button_isr_handler, NULL);

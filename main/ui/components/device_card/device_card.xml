@@ -1,0 +1,92 @@
+<component>
+	<!-- The card of one device slot: icon, power button, name and status.
+	     Everything is bound to the slot's subjects; the only C involved is the
+	     TV's on/off transition in custom/smartthings_logic.c, which plays
+	     tv_anim and hides tv_static while it runs. -->
+	<previews>
+		<preview name="ac" width="320" height="170" style_bg_color="0x5F8FA0">
+			<set_subject name="subject_device0_type" value="2" />
+		</preview>
+		<preview name="tv" width="320" height="170" style_bg_color="0x5F8FA0">
+			<set_subject name="subject_device0_type" value="1" />
+		</preview>
+		<preview name="off" width="320" height="170" style_bg_color="0x5F8FA0">
+			<set_subject name="subject_device0_on" value="0" />
+		</preview>
+		<preview name="busy" width="320" height="170" style_bg_color="0x5F8FA0">
+			<set_subject name="subject_device0_busy" value="1" />
+		</preview>
+	</previews>
+
+	<api>
+		<prop name="bind_type" type="subject" default="subject_device0_type" help="Int subject, ref_device_*" />
+		<prop name="bind_name" type="subject" default="subject_device0_name" help="String subject, the device name" />
+		<prop name="bind_detail" type="subject" default="subject_device0_detail" help="String subject, the status shown while on" />
+		<prop name="bind_on" type="subject" default="subject_device0_on" help="Int subject, 1 when on" />
+		<prop name="bind_busy" type="subject" default="subject_device0_busy" help="Int subject, 1 while a toggle is in flight" />
+	</api>
+
+	<view extends="lv_obj" align="center" width="#card_w" height="#card_h" scrollable="false">
+		<style name="style_card" />
+		<style name="style_device_card" />
+		<bind_style name="style_device_card_off" subject="$bind_on" ref_value="0" />
+		<bind_flag_if_eq flag="hidden" subject="$bind_type" ref_value="#ref_device_none" />
+
+		<!-- Air conditioner: static icon while off, looping animation while on -->
+		<lv_obj name="ac_icon" x="#device_icon_x" y="#device_icon_y" width="53" height="46" scrollable="false" clickable="false">
+			<style name="style_box" />
+			<bind_flag_if_not_eq flag="hidden" subject="$bind_type" ref_value="#ref_device_ac" />
+			<lv_image src="img_ac_off">
+				<bind_flag_if_eq flag="hidden" subject="$bind_on" ref_value="1" />
+			</lv_image>
+			<lottie_player src="ac_on" width="53" height="46">
+				<bind_flag_if_eq flag="hidden" subject="$bind_on" ref_value="0" />
+			</lottie_player>
+		</lv_obj>
+
+		<!-- TV: static on/off icons; a turn-on/turn-off animation plays over
+		     them when the state changes (custom/smartthings_logic.c) -->
+		<lv_obj name="tv_icon" x="#device_icon_x" y="#device_icon_y" width="44" height="38" scrollable="false" clickable="false">
+			<style name="style_box" />
+			<bind_flag_if_not_eq flag="hidden" subject="$bind_type" ref_value="#ref_device_tv" />
+			<lv_obj name="tv_static" width="100%" height="100%" scrollable="false" clickable="false">
+				<style name="style_box" />
+				<lv_image src="img_tv_off">
+					<bind_flag_if_eq flag="hidden" subject="$bind_on" ref_value="1" />
+				</lv_image>
+				<lv_image src="img_tv_on">
+					<bind_flag_if_eq flag="hidden" subject="$bind_on" ref_value="0" />
+				</lv_image>
+			</lv_obj>
+			<lottie_player name="tv_anim" width="44" height="38" loop="false" hidden="true" />
+		</lv_obj>
+
+		<!-- Power button, with a spinner over it while a toggle is in flight -->
+		<lv_obj x="#power_x" y="#power_y" width="54" height="54" scrollable="false" clickable="false">
+			<style name="style_box" />
+			<lv_obj width="100%" height="100%" scrollable="false" clickable="false">
+				<style name="style_box" />
+				<lv_image src="img_btn_on_state">
+					<bind_flag_if_eq flag="hidden" subject="$bind_on" ref_value="0" />
+				</lv_image>
+				<lv_image src="img_btn_off_state">
+					<bind_flag_if_eq flag="hidden" subject="$bind_on" ref_value="1" />
+				</lv_image>
+			</lv_obj>
+			<lottie_player src="btn_loading" width="54" height="54">
+				<bind_flag_if_eq flag="hidden" subject="$bind_busy" ref_value="0" />
+			</lottie_player>
+		</lv_obj>
+
+		<lv_label x="#device_icon_x" y="65" bind_text="$bind_name"
+		          style_text_font="font_montserrat_semibold_16" style_text_color="#color_device_name" />
+		<lv_label x="#device_icon_x" y="84" text="Off"
+		          style_text_font="font_montserrat_semibold_16" style_text_color="#color_device_status">
+			<bind_flag_if_eq flag="hidden" subject="$bind_on" ref_value="1" />
+		</lv_label>
+		<lv_label x="#device_icon_x" y="84" bind_text="$bind_detail"
+		          style_text_font="font_montserrat_semibold_16" style_text_color="#color_device_status">
+			<bind_flag_if_eq flag="hidden" subject="$bind_on" ref_value="0" />
+		</lv_label>
+	</view>
+</component>

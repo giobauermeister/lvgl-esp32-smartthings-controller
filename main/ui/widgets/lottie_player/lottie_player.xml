@@ -1,0 +1,18 @@
+<widget>
+	<!-- A Lottie animation. LVGL Pro XML has no lv_lottie yet, so this widget
+	     hosts one from C (lottie_player.c). The animation data is compiled in
+	     and looked up by name in custom/lottie_assets. -->
+	<previews>
+		<preview name="loading" width="120" height="120" style_bg_color="0x254A76" />
+	</previews>
+
+	<api>
+		<prop name="src" type="string" default="" help="Animation name from custom/lottie_assets, e.g. loading, ac_on, tv_turn_on" />
+		<prop name="loop" type="bool" default="true" help="Repeat forever; when false the animation plays once and stops on its last frame" />
+	</api>
+
+	<!-- The size sets the size of the rendered animation: a buffer of
+	     width x height x 4 bytes is allocated for it -->
+	<view extends="lv_obj" width="64" height="64" scrollable="false" clickable="false"
+	      style_bg_opa="0" style_border_width="0" style_pad_all="0" style_radius="0" />
+</widget>

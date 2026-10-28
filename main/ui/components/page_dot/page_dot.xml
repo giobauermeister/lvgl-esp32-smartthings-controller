@@ -1,0 +1,15 @@
+<component>
+	<!-- One dot of the page indicator, lit while subject_page is its page -->
+	<previews>
+		<preview name="active" width="24" height="24" style_bg_color="0x5F8FA0" />
+	</previews>
+
+	<api>
+		<prop name="page" type="int" default="0" help="Page this dot stands for" />
+	</api>
+
+	<view extends="lv_obj" width="#dot_size" height="#dot_size" scrollable="false" clickable="false">
+		<style name="style_dot" />
+		<bind_style name="style_dot_active" subject="subject_page" ref_value="$page" />
+	</view>
+</component>

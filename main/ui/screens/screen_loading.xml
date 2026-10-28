@@ -1,0 +1,11 @@
+<screen>
+	<!-- Shown from boot until the devices are fetched: ui_create_loading_sceen()
+	     of the original UI -->
+	<view scrollable="false" style_pad_all="0">
+		<lv_image src="img_app_background" align="center" />
+		<lv_image src="img_st_icon_w65_h65" x="10" y="10" />
+		<lv_label text="SmartThings" x="80" y="22"
+		          style_text_font="font_montserrat_bold_34" style_text_color="#color_white" />
+		<lottie_player src="loading" x="115" y="70" width="86" height="86" />
+	</view>
+</screen>

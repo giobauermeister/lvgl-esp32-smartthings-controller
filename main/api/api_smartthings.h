@@ -4,10 +4,13 @@
 #include "cJSON.h"
 #include <stdbool.h>
 
+// A response body, null terminated. The buffer grows as data arrives, up to
+// HTTP_MAX_RESPONSE_SIZE; past that the rest is dropped and truncated is set.
 typedef struct {
     char *buffer;
     int buffer_size;
     int received_len;
+    bool truncated;
 } http_response_ctx_t;
 
 typedef enum {
@@ -36,8 +39,6 @@ typedef struct {
     } device_data;
     
 } smartthings_device_t;
-
-void smartthings_init_task(void *param);
 
 void smartthings_api_GET_devices(void);
 void smartthings_api_GET_device_switch_status(smartthings_device_t *device);

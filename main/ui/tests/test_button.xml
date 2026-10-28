@@ -1,0 +1,48 @@
+<!-- The board's single button, as custom/app_simulator.c plays it in the
+     preview: a click is a short press (next page), a long press toggles the
+     device in view after APP_SIMULATOR_API_LATENCY (1200 ms). Pages slide for
+     UI_SLIDE_TIME (300 ms) and ignore presses meanwhile, hence the waits. -->
+<test width="320" height="170">
+	<view extends="screen_main" />
+
+	<steps>
+		<wait ms="200" />
+		<subject_compare subject="subject_page" value="0" />
+
+		<click_at x="160" y="100" />
+		<wait ms="400" />
+		<subject_compare subject="subject_page" value="1" />
+
+		<!-- Long press on the TV: busy while the API call runs, then off -->
+		<move_to x="160" y="100" />
+		<press />
+		<wait ms="600" />
+		<release />
+		<wait ms="100" />
+		<subject_compare subject="subject_device1_busy" value="1" />
+		<subject_compare subject="subject_device1_on" value="1" />
+		<wait ms="1300" />
+		<subject_compare subject="subject_device1_busy" value="0" />
+		<subject_compare subject="subject_device1_on" value="0" />
+
+		<!-- The remaining pages, then back to the first -->
+		<click_at x="160" y="100" />
+		<wait ms="400" />
+		<subject_compare subject="subject_page" value="2" />
+		<click_at x="160" y="100" />
+		<wait ms="400" />
+		<subject_compare subject="subject_page" value="3" />
+		<click_at x="160" y="100" />
+		<wait ms="400" />
+		<subject_compare subject="subject_page" value="4" />
+		<click_at x="160" y="100" />
+		<wait ms="400" />
+		<subject_compare subject="subject_page" value="0" />
+
+		<!-- An empty device slot is skipped -->
+		<subject_set subject="subject_device1_type" value="0" />
+		<click_at x="160" y="100" />
+		<wait ms="400" />
+		<subject_compare subject="subject_page" value="2" />
+	</steps>
+</test>

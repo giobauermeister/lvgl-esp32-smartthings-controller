@@ -1,0 +1,26 @@
+<component>
+	<!-- The temperature and humidity cards: an icon, a title and a bound value -->
+	<previews>
+		<preview name="temperature" width="320" height="170" style_bg_color="0x5F8FA0" />
+	</previews>
+
+	<api>
+		<prop name="icon" type="image" default="img_termometer" />
+		<prop name="icon_x" type="int" default="37" help="The icons differ in size, so each card places its own" />
+		<prop name="icon_y" type="int" default="30" />
+		<prop name="title" type="string" default="Temperature" />
+		<prop name="bind_value" type="subject" default="subject_temperature" help="Float subject shown as the value" />
+		<prop name="fmt" type="string" default="%.1f°C" help="printf format of the value" />
+	</api>
+
+	<view extends="lv_obj" align="center" width="#card_w" height="#card_h" scrollable="false">
+		<style name="style_card" />
+		<style name="style_sensor_card" />
+
+		<lv_image src="$icon" x="$icon_x" y="$icon_y" />
+		<lv_label x="80" y="30" text="$title"
+		          style_text_font="font_montserrat_semibold_20" style_text_color="#color_sensor_label" />
+		<lv_label x="80" y="56" bind_text="$bind_value" bind_text-fmt="$fmt"
+		          style_text_font="font_montserrat_bold_28" style_text_color="#color_sensor_value" />
+	</view>
+</component>

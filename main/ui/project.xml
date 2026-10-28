@@ -1,0 +1,8 @@
+<project name="smartthings_ui" lvgl_version="9.5.0">
+	<targets>
+		<!-- LILYGO T-Display S3: 1.9" ST7789, 320x170 in landscape -->
+		<target name="t_display_s3">
+			<display width="320" height="170" />
+		</target>
+	</targets>
+</project>
