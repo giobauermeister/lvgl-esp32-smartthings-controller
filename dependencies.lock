@@ -1,18 +1,29 @@
 dependencies:
+  espressif/cjson:
+    component_hash: e788323270d90738662d66fffa910bfe1fba019bba087f01557e70c40485b469
+    dependencies:
+    - name: idf
+      require: private
+      version: '>=5.0'
+    source:
+      registry_url: https://components.espressif.com/
+      type: service
+    version: 1.7.19~2
   idf:
     source:
       type: idf
-    version: 5.4.1
+    version: 6.0.2
   lvgl/lvgl:
-    component_hash: 096c69af22eaf8a2b721e3913da91918c5e6bf1a762a113ec01f401aa61337a0
+    component_hash: 184e532558c1c45fefed631f3e235423d22582aafb4630f3e8885c35281a49ae
     dependencies: []
     source:
       registry_url: https://components.espressif.com/
       type: service
-    version: 9.2.2
+    version: 9.5.0
 direct_dependencies:
+- espressif/cjson
 - idf
 - lvgl/lvgl
-manifest_hash: 5ac0a3caea35cb93d897ce0dc62b5fc58ebf3064a333c5812640f04c47405704
+manifest_hash: 47fa7565812671adf4f61e0545332230f4cb9e5e799e0aa9561968f66dfc0cd6
 target: esp32s3
-version: 2.0.0
+version: 3.0.0

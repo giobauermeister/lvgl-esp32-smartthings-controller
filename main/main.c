@@ -13,12 +13,32 @@
 #include "nvs_flash.h"
 #include "esp_system.h"
 #include "esp_lcd_panel_ops.h"
-#include "ui/lvgl_init.h"
+#include "display/lvgl_init.h"
 #include "display/display_init.h"
-#include "ui/ui_smartthings.h"
+#include "app/app_ui.h"
 #include "button/button.h"
 #include "wifi/wifi_init.h"
 #include "api/api_smartthings.h"
+
+static void smartthings_init_task(void *param)
+{
+    wifi_init_sta(); // blocking until connected
+
+    smartthings_api_GET_devices();
+
+    smartthings_device_t *list = smartthings_get_devices();
+    int count = smartthings_get_device_count();
+
+    for (int i = 0; i < count; i++) {
+        smartthings_api_GET_device_full_status(&list[i]); // Check if device is ON or OFF and get its metrics
+    }
+
+    // After fetching devices and status, switch to main UI
+    printf("Devices fetched, switching to main UI...\n");
+    app_ui_show_devices(list, count);
+
+    vTaskDelete(NULL); // cleanup this task
+}
 
 void app_main(void)
 {
@@ -27,13 +47,13 @@ void app_main(void)
     ESP_ERROR_CHECK(nvs_flash_init());
 
     lvgl_init();
-    ui_create_loading_sceen();
+    app_ui_init();
     create_lvgl_task();
 
     xTaskCreatePinnedToCore(smartthings_init_task, "SmartThings Init", 8192, NULL, 5, NULL, 1);
 
-    button_set_callback(on_button_pressed);
-    button_set_longpress_callback(on_button_hold);
+    button_set_callback(app_ui_button_pressed);
+    button_set_longpress_callback(app_ui_button_hold);
     button_init();
 
     while (1) {

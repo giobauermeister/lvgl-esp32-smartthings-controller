@@ -1,0 +1,112 @@
+<globals>
+	<consts>
+		<!-- ── Palette, from the UI_COLOR_* defines of the original ui_smartthings.h ── -->
+		<color name="color_white" value="0xFFFFFF" />
+		<color name="color_device_card" value="0xF6F6F6" />
+		<color name="color_device_name" value="0x313131" />
+		<color name="color_device_status" value="0x8A8A8A" />
+		<color name="color_indicator" value="0x797979" />
+		<color name="color_indicator_selected" value="0xF6F6F6" />
+		<color name="color_sensor_card" value="0x254A76" />
+		<color name="color_sensor_label" value="0xA5B3CE" />
+		<color name="color_sensor_value" value="0xF2F2F2" />
+
+		<!-- ── Geometry ── -->
+		<px name="screen_w" value="320" />
+		<px name="screen_h" value="170" />
+		<!-- Every page is a card at the same place; the hidden ones wait off-screen
+		     on the right (card_x_next) and leave to the left (card_x_prev).
+		     custom/smartthings_logic.c slides them between these. -->
+		<px name="card_w" value="286" />
+		<px name="card_h" value="111" />
+		<px name="card_x" value="17" />
+		<px name="card_y" value="42" />
+		<px name="card_x_next" value="320" />
+		<px name="card_x_prev" value="-320" />
+		<px name="card_radius" value="23" />
+		<!-- Device icon and power button, inside a device card -->
+		<px name="device_icon_x" value="14" />
+		<px name="device_icon_y" value="12" />
+		<px name="power_x" value="223" />
+		<px name="power_y" value="7" />
+		<px name="dot_size" value="8" />
+
+		<!-- ── Enumerations ── -->
+		<!-- Device types, the values of subject_device<N>_type. The UI owns them:
+		     the firmware maps its own device types to these (see the README), so
+		     neither side depends on the other's numbering. Bindings only accept
+		     <int> consts here, not <enumdef> values. -->
+		<int name="ref_device_none" value="0" />
+		<int name="ref_device_tv" value="1" />
+		<int name="ref_device_ac" value="2" />
+		<!-- Pages: the device slots 0..2, then the two sensor cards
+		     (UI_DEVICE_SLOTS and UI_PAGE_COUNT in custom/smartthings_logic.h) -->
+		<int name="ref_page_temperature" value="3" />
+		<int name="ref_page_humidity" value="4" />
+	</consts>
+
+	<fonts>
+		<!-- Rendered from fonts/*.ttf at 4 bpp, printable ASCII plus the degree
+		     sign: the same range the original lv_font_conv fonts had -->
+		<bin name="font_montserrat_bold_24" src_path="fonts/Montserrat-Bold.ttf" size="24" bpp="4" as_file="false" range="0x20-0x7F" symbols="°" />
+		<bin name="font_montserrat_bold_28" src_path="fonts/Montserrat-Bold.ttf" size="28" bpp="4" as_file="false" range="0x20-0x7F" symbols="°" />
+		<bin name="font_montserrat_bold_34" src_path="fonts/Montserrat-Bold.ttf" size="34" bpp="4" as_file="false" range="0x20-0x7F" symbols="°" />
+		<bin name="font_montserrat_semibold_16" src_path="fonts/Montserrat-SemiBold.ttf" size="16" bpp="4" as_file="false" range="0x20-0x7F" symbols="°" />
+		<bin name="font_montserrat_semibold_20" src_path="fonts/Montserrat-SemiBold.ttf" size="20" bpp="4" as_file="false" range="0x20-0x7F" symbols="°" />
+	</fonts>
+
+	<subjects>
+		<!-- ── Device slots, written by the application. A slot whose type is
+		     ref_device_none hides its card and page dot, and is skipped by
+		     ui_next_page(). The defaults are the devices of the repo screenshots. ── -->
+		<int name="subject_device0_type" value="2" min_value="0" max_value="2" help="Mirror of ref_device_*" />
+		<string name="subject_device0_name" value="Office air conditioner" />
+		<string name="subject_device0_detail" value="Current 23°C" help="Shown under the name while the device is on" />
+		<int name="subject_device0_on" value="1" min_value="0" max_value="1" />
+		<int name="subject_device0_busy" value="0" min_value="0" max_value="1" help="1 while a toggle is in flight: the power button shows a spinner" />
+
+		<int name="subject_device1_type" value="1" min_value="0" max_value="2" help="Mirror of ref_device_*" />
+		<string name="subject_device1_name" value="55&quot; QLED" />
+		<string name="subject_device1_detail" value="Prime Video" help="Shown under the name while the device is on" />
+		<int name="subject_device1_on" value="1" min_value="0" max_value="1" />
+		<int name="subject_device1_busy" value="0" min_value="0" max_value="1" help="1 while a toggle is in flight: the power button shows a spinner" />
+
+		<int name="subject_device2_type" value="2" min_value="0" max_value="2" help="Mirror of ref_device_*" />
+		<string name="subject_device2_name" value="Bedroom air conditioner" />
+		<string name="subject_device2_detail" value="Current 24°C" help="Shown under the name while the device is on" />
+		<int name="subject_device2_on" value="0" min_value="0" max_value="1" />
+		<int name="subject_device2_busy" value="0" min_value="0" max_value="1" help="1 while a toggle is in flight: the power button shows a spinner" />
+
+		<!-- ── Sensor cards, written by the application ── -->
+		<float name="subject_temperature" value="23.5" help="Average temperature of the air conditioners, degrees C" />
+		<float name="subject_humidity" value="67.5" min_value="0" max_value="100" help="Average relative humidity of the air conditioners, percent" />
+
+		<!-- ── Navigation. ui_next_page() writes it; the application may too. ── -->
+		<int name="subject_page" value="0" min_value="0" max_value="4" help="Page in view: a device slot 0..2, ref_page_temperature or ref_page_humidity" />
+	</subjects>
+
+	<images>
+		<data name="img_app_background" src_path="images/img_app_background.png" color_format="rgb565" />
+		<data name="img_st_icon" src_path="images/img_st_icon.png" color_format="rgb565a8" />
+		<data name="img_st_icon_w65_h65" src_path="images/img_st_icon_w65_h65.png" color_format="rgb565a8" />
+		<data name="img_ac_off" src_path="images/img_ac_off.png" color_format="rgb565a8" />
+		<data name="img_tv_off" src_path="images/img_tv_off.png" color_format="rgb565a8" />
+		<data name="img_tv_on" src_path="images/img_tv_on.png" color_format="rgb565a8" />
+		<data name="img_btn_on_state" src_path="images/img_btn_on_state.png" color_format="rgb565a8" />
+		<data name="img_btn_off_state" src_path="images/img_btn_off_state.png" color_format="rgb565a8" />
+		<data name="img_termometer" src_path="images/img_termometer.png" color_format="rgb565a8" />
+		<data name="img_droplet" src_path="images/img_droplet.png" color_format="rgb565a8" />
+	</images>
+
+	<styles>
+		<!-- A layout-only box: no background, border or padding -->
+		<style name="style_box" bg_opa="0" border_width="0" pad_all="0" radius="0" />
+		<style name="style_card" border_width="0" pad_all="0" radius="#card_radius" />
+		<style name="style_device_card" bg_color="#color_device_card" />
+		<!-- LV_OPA_90 on the card of a device that is off -->
+		<style name="style_device_card_off" bg_opa="229" />
+		<style name="style_sensor_card" bg_color="#color_sensor_card" />
+		<style name="style_dot" radius="999" border_width="0" bg_color="#color_indicator" />
+		<style name="style_dot_active" bg_color="#color_indicator_selected" />
+	</styles>
+</globals>

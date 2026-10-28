@@ -1,0 +1,48 @@
+<screen>
+	<!-- The device carousel: ui_create() of the original UI. One card per page;
+	     the page in view sits at card_x, the others wait at card_x_next and
+	     custom/smartthings_logic.c slides them when subject_page changes. -->
+	<view scrollable="false" style_pad_all="0">
+		<lv_image src="img_app_background" align="center" />
+		<lv_image src="img_st_icon" x="15" y="6" />
+		<lv_label text="SmartThings" x="50" y="8"
+		          style_text_font="font_montserrat_bold_24" style_text_color="#color_white" />
+
+		<device_card name="page_0" align="top_left" x="#card_x" y="#card_y"
+		             bind_type="subject_device0_type" bind_name="subject_device0_name"
+		             bind_detail="subject_device0_detail" bind_on="subject_device0_on"
+		             bind_busy="subject_device0_busy" />
+		<device_card name="page_1" align="top_left" x="#card_x_next" y="#card_y"
+		             bind_type="subject_device1_type" bind_name="subject_device1_name"
+		             bind_detail="subject_device1_detail" bind_on="subject_device1_on"
+		             bind_busy="subject_device1_busy" />
+		<device_card name="page_2" align="top_left" x="#card_x_next" y="#card_y"
+		             bind_type="subject_device2_type" bind_name="subject_device2_name"
+		             bind_detail="subject_device2_detail" bind_on="subject_device2_on"
+		             bind_busy="subject_device2_busy" />
+		<sensor_card name="page_3" align="top_left" x="#card_x_next" y="#card_y"
+		             icon="img_termometer" icon_x="37" icon_y="30" title="Temperature"
+		             bind_value="subject_temperature" fmt="%.1f°C" />
+		<sensor_card name="page_4" align="top_left" x="#card_x_next" y="#card_y"
+		             icon="img_droplet" icon_x="33" icon_y="33" title="Humidity"
+		             bind_value="subject_humidity" fmt="%.1f%%" />
+
+		<!-- Page indicator; the dots of empty device slots are hidden and the
+		     flex row closes up around them -->
+		<lv_obj align="bottom_mid" y="-5" width="content" height="#dot_size" scrollable="false"
+		        style_layout="flex" style_flex_flow="row" style_pad_column="5">
+			<style name="style_box" />
+			<page_dot page="0">
+				<bind_flag_if_eq flag="hidden" subject="subject_device0_type" ref_value="#ref_device_none" />
+			</page_dot>
+			<page_dot page="1">
+				<bind_flag_if_eq flag="hidden" subject="subject_device1_type" ref_value="#ref_device_none" />
+			</page_dot>
+			<page_dot page="2">
+				<bind_flag_if_eq flag="hidden" subject="subject_device2_type" ref_value="#ref_device_none" />
+			</page_dot>
+			<page_dot page="#ref_page_temperature" />
+			<page_dot page="#ref_page_humidity" />
+		</lv_obj>
+	</view>
+</screen>

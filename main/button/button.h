@@ -5,6 +5,7 @@
 
 #define BUTTON_GPIO 14
 
+// The callbacks run in the button task, not in the LVGL task
 void button_init(void);
 void button_set_callback(void (*cb)(void));
 void button_set_longpress_callback(void (*cb)(void));

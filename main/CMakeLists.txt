@@ -1,51 +1,35 @@
 set(SRC_FILES
     "main.c"
+    "app/app_ui.c"
     "display/display_init.c"
+    "display/lvgl_init.c"
     "button/button.c"
-    "ui/lvgl_init.c"
-    "ui/ui_smartthings.c"
     "wifi/wifi_init.c"
     "api/api_smartthings.c"
 )
 
-set(UI_ASSETS
-    "ui/assets/images/img_app_background.c"
-    "ui/assets/images/img_st_icon.c"
-    "ui/assets/images/img_st_icon_w65_h65.c"
-    "ui/assets/images/img_ac_icon_static.c"
-    "ui/assets/images/img_ac_off.c"
-    "ui/assets/images/img_on_off.c"
-    "ui/assets/images/img_tv_on.c"
-    "ui/assets/images/img_tv_off.c"
-    "ui/assets/images/img_btn_on_state.c"
-    "ui/assets/images/img_btn_off_state.c"
-    "ui/assets/images/img_termometer.c"
-    "ui/assets/images/img_droplet.c"
-)
-
-set(UI_FONTS
-    "ui/assets/fonts/lv_font_montserrat_bold_24.c"
-    "ui/assets/fonts/lv_font_montserrat_bold_28.c"
-    "ui/assets/fonts/lv_font_montserrat_bold_34.c"
-    "ui/assets/fonts/lv_font_montserrat_semibold_16.c"
-    "ui/assets/fonts/lv_font_montserrat_semibold_20.c"
-)
+# The UI is an LVGL Pro project in ui/. LVGL Pro generates its source list, and
+# ui/user_config.cmake adds the hand-written ones.
+set(LV_EDITOR_PROJECT_SOURCES "")
+include(${CMAKE_CURRENT_LIST_DIR}/ui/file_list_gen.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/ui/user_config.cmake)
 
 set(REQ_COMPONENTS
     lvgl
     esp_lcd
     spiffs
-    json
+    espressif__cjson
     nvs_flash
     esp_wifi
     esp_netif
     esp_http_client
     esp-tls
+    esp_timer
 )
 
 idf_component_register(
-    SRCS ${UI_ASSETS} ${UI_FONTS} ${SRC_FILES}
-    INCLUDE_DIRS "."
+    SRCS ${SRC_FILES} ${LV_EDITOR_PROJECT_SOURCES}
+    INCLUDE_DIRS "." "ui"
     PRIV_REQUIRES spi_flash
     REQUIRES ${REQ_COMPONENTS}
 )
